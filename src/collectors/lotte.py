@@ -126,29 +126,34 @@ class LotteCinemaCollector:
         self.session.commit()
         logger.info(f"Saved {count} inventory items for Event {event_id}, Gift {gift_id}")
 
-    def scan_gift_ids(self, event_id, base_gift_id):
+    def scan_gift_ids(self, event_id, base_gift_id, scan_range_plus=20, scan_range_minus=5):
         """
         GiftID 주변부를 스캔하여 유효한 데이터를 찾습니다.
         """
         try:
             base_id = int(base_gift_id)
-        except ValueError:
-            logger.error(f"Invalid base_gift_id for scan: {base_gift_id}")
-            return None
+        except (ValueError, TypeError):
+            logger.error(f"Invalid base_gift_id for scan: {base_gift_id}. Using default 13600.")
+            base_id = 13600
 
-        search_range = range(base_id - 5, base_id + 11)
+        # Scan range adjustment
+        search_range = range(base_id - scan_range_minus, base_id + scan_range_plus + 1)
         
         for g_id in search_range:
             current_gift_id = str(g_id)
+            # Skip if already failed in this session? (Optional)
+            
             logger.info(f"Scanning GiftID {current_gift_id} for Event {event_id}...")
             inv_data = self.fetch_inventory(event_id, current_gift_id)
             
             if inv_data and inv_data.get('CinemaDivisionGoods'):
-                logger.info(f"Found valid GiftID {current_gift_id} for Event {event_id}!")
+                logger.info(f"SUCCESS: Found valid GiftID {current_gift_id} for Event {event_id}!")
                 self.save_inventory(event_id, current_gift_id, inv_data)
                 return current_gift_id
             
-            time.sleep(0.5) 
+            time.sleep(0.3) # Slightly faster scan
+        
+        logger.warning(f"Scan complete for Event {event_id}, no valid GiftID found.")
         return None
 
     def collect_target_inventory(self, event_id, gift_id):
@@ -178,6 +183,11 @@ class LotteCinemaCollector:
         self.save_inventory(event_id, gift_id, inv_data)
         return gift_id
 
+    def get_latest_gift_id(self):
+        """DB에서 가장 최근에 성공한 GiftID를 가져옵니다."""
+        latest = self.session.query(Inventory).order_by(Inventory.GiftID.desc()).first()
+        return latest.GiftID if latest else "13600" # 기본 시작점
+
     def process_events(self):
         logger.info("Starting event processing...")
         response = self.fetch_events(1)
@@ -188,12 +198,20 @@ class LotteCinemaCollector:
         items = response['Items']
         logger.info(f"Fetched {len(items)} events.")
 
+        latest_ref_id = self.get_latest_gift_id()
+
         for item in items:
             event = self.save_event(item)
             if not event:
                 continue
 
+            # 키워드 매칭 및 재고 추적 여부 확인
             if any(keyword in event.EventName for keyword in self.KEYWORDS):
-                pass
+                # 이미 해당 이벤트에 대해 수집된 인벤토리가 있는지 확인
+                existing_inv = self.session.query(Inventory).filter_by(EventID=event.EventID).first()
+                if not existing_inv:
+                    logger.info(f"New candidate event found: {event.EventName}. Searching for GiftID...")
+                    # 최신 GiftID 근처부터 스캔 시도 (+20 범위로 확대)
+                    self.scan_gift_ids(event.EventID, latest_ref_id)
                 
         logger.info("Event processing complete.")
