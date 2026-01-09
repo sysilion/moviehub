@@ -3,7 +3,7 @@ import json
 import time
 from datetime import datetime
 from sqlalchemy.orm import Session
-from src.database.models import Event, Inventory
+from src.database.models import Event, Inventory, InventoryHistory
 from src.utils.logger import get_logger
 
 logger = get_logger("LotteCollector")
@@ -19,6 +19,7 @@ class LotteCinemaCollector:
     }
     
     KEYWORDS = ['증정', '뱃지', '아트카드', 'artcard', '무비티켓', '키링']
+    EXCLUDE_KEYWORDS = ['콤보', '런칭']
 
     def __init__(self, session: Session):
         self.session = session
@@ -53,7 +54,7 @@ class LotteCinemaCollector:
             "SearchText": "",
             "CinemaID": "",
             "PageNo": str(page),
-            "PageSize": 40,
+            "PageSize": 100,
             "MemberNo": "0"
         }
         return self._make_request("GetEventLists", params)
@@ -106,112 +107,135 @@ class LotteCinemaCollector:
             return
 
         items = inventory_data['CinemaDivisionGoods']
-        self.session.query(Inventory).filter_by(EventID=event_id, GiftID=gift_id).delete()
+        old_counts = {inv.CinemaID: inv.ItemCount for inv in self.session.query(Inventory).filter_by(EventID=event_id, GiftID=gift_id).all()}
+        
+        self.session.query(Inventory).filter_by(EventID=event_id, GiftID=gift_id).delete() 
         
         count = 0
+        now = datetime.now()
         for item in items:
+            c_id = item.get('CinemaID')
+            new_count = item.get('Cnt')
+            
             inv = Inventory(
                 EventID=event_id,
                 GiftID=gift_id,
-                CinemaID=item.get('CinemaID'),
+                CinemaID=c_id,
                 CinemaName=item.get('CinemaNameKR'),
                 DivisionCode=str(item.get('DivisionCode')),
                 DetailDivisionCode=item.get('DetailDivisionCode'),
-                ItemCount=item.get('Cnt'),
-                LastUpdated=datetime.now()
+                ItemCount=new_count,
+                LastUpdated=now
             )
             self.session.add(inv)
+            
+            if c_id not in old_counts or old_counts[c_id] != new_count:
+                history = InventoryHistory(
+                    EventID=event_id,
+                    GiftID=gift_id,
+                    CinemaID=c_id,
+                    CinemaName=item.get('CinemaNameKR'),
+                    ItemCount=new_count,
+                    RecordTime=now
+                )
+                self.session.add(history)
             count += 1
         
         self.session.commit()
         logger.info(f"Saved {count} inventory items for Event {event_id}, Gift {gift_id}")
 
-    def scan_gift_ids(self, event_id, base_gift_id, scan_range_plus=20, scan_range_minus=5):
-        """
-        GiftID 주변부를 스캔하여 유효한 데이터를 찾습니다.
-        """
+    def scan_gift_ids(self, event_id, base_gift_id, scan_range_plus=30, scan_range_minus=5):
+        """GiftID 정방향 스캔 (최대 +30)"""
         try:
             base_id = int(base_gift_id)
         except (ValueError, TypeError):
-            logger.error(f"Invalid base_gift_id for scan: {base_gift_id}. Using default 13600.")
             base_id = 13600
 
-        # Scan range adjustment
+        used_gift_ids = {item[0] for item in self.session.query(Inventory.GiftID).filter(Inventory.EventID != event_id).distinct().all()}
+        
+        # 정방향 스캔 범위: -5 ~ +30
         search_range = range(base_id - scan_range_minus, base_id + scan_range_plus + 1)
         
         for g_id in search_range:
             current_gift_id = str(g_id)
-            # Skip if already failed in this session? (Optional)
+            if current_gift_id in used_gift_ids: continue
             
-            logger.info(f"Scanning GiftID {current_gift_id} for Event {event_id}...")
+            logger.info(f"Scanning GiftID {current_gift_id} (Forward) for Event {event_id}...")
             inv_data = self.fetch_inventory(event_id, current_gift_id)
-            
             if inv_data and inv_data.get('CinemaDivisionGoods'):
-                logger.info(f"SUCCESS: Found valid GiftID {current_gift_id} for Event {event_id}!")
+                logger.info(f"SUCCESS: Found GiftID {current_gift_id} for Event {event_id}")
                 self.save_inventory(event_id, current_gift_id, inv_data)
                 return current_gift_id
-            
-            time.sleep(0.3) # Slightly faster scan
-        
-        logger.warning(f"Scan complete for Event {event_id}, no valid GiftID found.")
+            time.sleep(0.3)
         return None
 
     def collect_target_inventory(self, event_id, gift_id):
-        """특정 이벤트와 굿즈 ID에 대해 수량을 수집합니다."""
-        logger.info(f"Collecting inventory for Event:{event_id}, Gift:{gift_id}")
-        
-        if not self.session.query(Event).filter_by(EventID=event_id).first():
-            detail = self.fetch_event_detail(event_id)
-            if detail and 'InfomationDeliveryEventDetail' in detail and detail['InfomationDeliveryEventDetail']:
-                d_item = detail['InfomationDeliveryEventDetail'][0]
-                mapped_item = {
-                    "EventID": d_item.get("EventID"),
-                    "EventName": d_item.get("EventName"),
-                    "EventClassificationCode": d_item.get("EventClassificationCode"),
-                    "ProgressStartDate": d_item.get("ProgressStartDate"),
-                    "ProgressEndDate": d_item.get("ProgressEndDate"),
-                    "ImageUrl": d_item.get("ImgUrl") 
-                }
-                self.save_event(mapped_item)
-        
+        """특정 타겟 재고 수집"""
+        logger.info(f"Updating inventory for Event:{event_id}, Gift:{gift_id}")
         inv_data = self.fetch_inventory(event_id, gift_id)
-        
-        if not inv_data or not inv_data.get('CinemaDivisionGoods'):
-            logger.warning(f"No data for GiftID {gift_id}. Starting scan...")
-            return self.scan_gift_ids(event_id, gift_id)
-        
-        self.save_inventory(event_id, gift_id, inv_data)
-        return gift_id
+        if inv_data and inv_data.get('CinemaDivisionGoods'):
+            self.save_inventory(event_id, gift_id, inv_data)
+            return True
+        return False
 
-    def get_latest_gift_id(self):
-        """DB에서 가장 최근에 성공한 GiftID를 가져옵니다."""
-        latest = self.session.query(Inventory).order_by(Inventory.GiftID.desc()).first()
-        return latest.GiftID if latest else "13600" # 기본 시작점
+    def estimate_gift_id(self, target_event_id):
+        try:
+            target_id = int(target_event_id)
+            known_items = self.session.query(Inventory.EventID, Inventory.GiftID).distinct().all()
+            DEFAULT_GIFT_ID = 13687
+            if not known_items: return str(DEFAULT_GIFT_ID)
+            best_match = None
+            min_diff = float('inf')
+            for evt_id, gift_id in known_items:
+                try:
+                    curr_evt_id = int(evt_id); curr_gift_id = int(gift_id)
+                    diff = abs(target_id - curr_evt_id)
+                    if diff < min_diff:
+                        min_diff = diff; best_match = (curr_evt_id, curr_gift_id)
+                except ValueError: continue
+            if best_match:
+                ref_evt_id, ref_gift_id = best_match
+                id_diff = target_id - ref_evt_id
+                if abs(id_diff) > 1000000: return str(ref_gift_id)
+                estimated = ref_gift_id + id_diff
+                return str(max(1000, estimated))
+            return str(DEFAULT_GIFT_ID)
+        except Exception: return "13687"
 
     def process_events(self):
-        logger.info("Starting event processing...")
+        """정방향 이벤트 탐색 (EventID > 201010016925852)"""
+        logger.info("Starting Forward event processing...")
+        
+        priority_id = "201010016925852"
+        priority_id_int = int(priority_id)
+        
         response = self.fetch_events(1)
-        if not response or 'Items' not in response:
-            logger.error("Failed to fetch event list.")
-            return
-
+        if not response or 'Items' not in response: return
         items = response['Items']
-        logger.info(f"Fetched {len(items)} events.")
 
-        latest_ref_id = self.get_latest_gift_id()
-
+        candidates = []
         for item in items:
-            event = self.save_event(item)
-            if not event:
-                continue
-
-            # 키워드 매칭 및 재고 추적 여부 확인
-            if any(keyword in event.EventName for keyword in self.KEYWORDS):
-                # 이미 해당 이벤트에 대해 수집된 인벤토리가 있는지 확인
-                existing_inv = self.session.query(Inventory).filter_by(EventID=event.EventID).first()
-                if not existing_inv:
-                    logger.info(f"New candidate event found: {event.EventName}. Searching for GiftID...")
-                    # 최신 GiftID 근처부터 스캔 시도 (+20 범위로 확대)
-                    self.scan_gift_ids(event.EventID, latest_ref_id)
+            try:
+                event_id_int = int(item.get('EventID', 0))
+                event_name = item.get('EventName', '')
+                is_target = any(keyword in event_name for keyword in self.KEYWORDS)
+                is_excluded = any(ex in event_name for ex in self.EXCLUDE_KEYWORDS)
                 
-        logger.info("Event processing complete.")
+                if event_id_int > priority_id_int and is_target and not is_excluded:
+                    candidates.append(item)
+            except (ValueError, TypeError): continue
+        
+        candidates.sort(key=lambda x: int(x.get('EventID', 0)))
+        logger.info(f"Filtered {len(candidates)} new candidate events.")
+
+        for item in candidates:
+            event = self.save_event(item)
+            if not event: continue
+
+            exists = self.session.query(Inventory).filter_by(EventID=event.EventID).first()
+            if not exists:
+                est = self.estimate_gift_id(event.EventID)
+                logger.info(f"Processing new event: {event.EventName} ({event.EventID}). Search Start: {est}")
+                self.scan_gift_ids(event.EventID, est)
+        
+        logger.info("Forward processing complete.")

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2 class="mb-4">📋 이벤트 및 굿즈 현황</h2>
+
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+    {% for item in events %}
+    <div class="col">
+        <div class="card h-100 shadow-sm event-card">
+            {% if item.event.ImageUrl %}
+            <img src="{{ item.event.ImageUrl }}" class="card-img-top" alt="{{ item.event.EventName }}">
+            {% else %}
+            <div class="card-img-top bg-secondary text-white d-flex align-items-center justify-content-center" style="height: 200px;">
+                No Image
+            </div>
+            {% endif %}
+            
+            <div class="card-body">
+                <h5 class="card-title text-truncate" title="{{ item.event.EventName }}">
+                    <a href="/event/{{ item.event.EventID }}" class="text-decoration-none text-dark stretched-link">
+                        {{ item.event.EventName }}
+                    </a>
+                </h5>
+                <p class="card-text text-muted small">
+                    {{ item.event.ProgressStartDate }} ~ {{ item.event.ProgressEndDate }}
+                </p>
+                
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <span class="badge bg-primary stock-badge">GiftID: {{ item.gift_id }}</span>
+                    {% if item.total_stock > 0 %}
+                    <span class="badge bg-success stock-badge">총 잔여: {{ item.total_stock | format_stock }}</span>
+                    {% else %}
+                    <span class="badge bg-secondary stock-badge">{{ item.total_stock | format_stock }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-footer text-muted small">
+                Last Updated: {{ item.last_updated }}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

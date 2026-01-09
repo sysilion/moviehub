@@ -14,37 +14,48 @@ class Event(Base):
 
     EventID = Column(String, primary_key=True)
     EventName = Column(String)
-    EventClassificationCode = Column(String, nullable=True) # 구분 코드
+    EventClassificationCode = Column(String, nullable=True)
     EventTypeCode = Column(String, nullable=True)
     EventTypeName = Column(String, nullable=True)
-    ProgressStartDate = Column(String, nullable=True) # API might return strings, parsing later
+    ProgressStartDate = Column(String, nullable=True)
     ProgressEndDate = Column(String, nullable=True)
     ImageUrl = Column(String, nullable=True)
     LinkEventFlag = Column(String, nullable=True)
     CinemaID = Column(String, nullable=True)
     DetailImageUrl = Column(String, nullable=True)
-    # Storing full raw JSON might be useful if schema changes often, 
-    # but for now we map specific fields.
     RawData = Column(Text, nullable=True)
     CreatedAt = Column(DateTime, default=datetime.now)
     UpdatedAt = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
+    inventories = relationship("Inventory", back_populates="event", cascade="all, delete-orphan")
+
 class Inventory(Base):
+    """현재 시점의 최신 재고 정보를 저장합니다."""
     __tablename__ = 'inventory'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     EventID = Column(String, ForeignKey('events.EventID'), index=True)
     GiftID = Column(String, index=True)
-    CinemaID = Column(String)
+    CinemaID = Column(String, index=True)
     CinemaName = Column(String)
-    DivisionCode = Column(String, nullable=True) # Region (Seoul, etc.)
-    DetailDivisionCode = Column(String, nullable=True) 
-    ItemCount = Column(Integer) # Cnt
+    DivisionCode = Column(String, nullable=True)
+    DetailDivisionCode = Column(String, nullable=True)
+    ItemCount = Column(Integer)
     LastUpdated = Column(DateTime, default=datetime.now)
 
     event = relationship("Event", back_populates="inventories")
 
-Event.inventories = relationship("Inventory", order_by=Inventory.id, back_populates="event")
+class InventoryHistory(Base):
+    """시간대별 재고 변동 이력을 저장합니다."""
+    __tablename__ = 'inventory_history'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    EventID = Column(String, index=True)
+    GiftID = Column(String, index=True)
+    CinemaID = Column(String, index=True)
+    CinemaName = Column(String)
+    ItemCount = Column(Integer)
+    RecordTime = Column(DateTime, default=datetime.now)
 
 def get_engine(db_url=None):
     if not db_url:
