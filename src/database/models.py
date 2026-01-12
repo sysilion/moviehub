@@ -14,14 +14,13 @@ class Event(Base):
 
     EventID = Column(String, primary_key=True)
     EventName = Column(String)
+    GiftID = Column(String, nullable=True) # 굿즈 번호 필드 추가
     EventClassificationCode = Column(String, nullable=True)
     EventTypeCode = Column(String, nullable=True)
     EventTypeName = Column(String, nullable=True)
     ProgressStartDate = Column(String, nullable=True)
     ProgressEndDate = Column(String, nullable=True)
     ImageUrl = Column(String, nullable=True)
-    LinkEventFlag = Column(String, nullable=True)
-    CinemaID = Column(String, nullable=True)
     DetailImageUrl = Column(String, nullable=True)
     RawData = Column(Text, nullable=True)
     CreatedAt = Column(DateTime, default=datetime.now)
@@ -30,7 +29,6 @@ class Event(Base):
     inventories = relationship("Inventory", back_populates="event", cascade="all, delete-orphan")
 
 class Inventory(Base):
-    """현재 시점의 최신 재고 정보를 저장합니다."""
     __tablename__ = 'inventory'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -40,13 +38,13 @@ class Inventory(Base):
     CinemaName = Column(String)
     DivisionCode = Column(String, nullable=True)
     DetailDivisionCode = Column(String, nullable=True)
+    DivisionName = Column(String, nullable=True)
     ItemCount = Column(Integer)
     LastUpdated = Column(DateTime, default=datetime.now)
 
     event = relationship("Event", back_populates="inventories")
 
 class InventoryHistory(Base):
-    """시간대별 재고 변동 이력을 저장합니다."""
     __tablename__ = 'inventory_history'
 
     id = Column(Integer, primary_key=True, autoincrement=True)

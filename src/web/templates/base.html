@@ -1,28 +1,147 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MovieHub - Goods Tracker</title>
+    <!-- Modern Font: Pretendard -->
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        .event-card img { height: 200px; object-fit: cover; }
-        .stock-badge { font-size: 0.9em; }
+        :root {
+            --primary-color: #3b82f6;
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --border-color: #334155;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --card-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.5);
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            word-break: keep-all;
+        }
+
+        .navbar {
+            background-color: rgba(15, 23, 42, 0.8) !important;
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 0;
+        }
+
+        .navbar-brand {
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            color: var(--primary-color) !important;
+            font-size: 1.5rem;
+        }
+
+        .event-card {
+            border: 1px solid var(--border-color);
+            border-radius: 1.25rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: var(--card-bg);
+            overflow: hidden;
+            box-shadow: var(--card-shadow);
+        }
+
+        .event-card:hover {
+            transform: translateY(-8px);
+            border-color: var(--primary-color);
+        }
+
+        .card-img-container {
+            position: relative;
+            padding-top: 50%; /* 가로형 배너 비율 (2:1) */
+            overflow: hidden;
+            background-color: #1e293b;
+        }
+
+        .card-img-top {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+
+        .stock-badge {
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        /* Dark Mode용 Badge Colors */
+        .badge-primary { background-color: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+        .badge-success { background-color: rgba(16, 185, 129, 0.15); color: #34d399; }
+        .badge-warning { background-color: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+        .badge-danger { background-color: rgba(239, 68, 68, 0.15); color: #f87171; }
+        .badge-secondary { background-color: rgba(148, 163, 184, 0.15); color: #cbd5e1; }
+
+        .btn-update {
+            border-radius: 1rem;
+            padding: 0.6rem 1.2rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .table {
+            --bs-table-bg: transparent;
+            --bs-table-color: var(--text-main);
+            border-collapse: separate;
+            border-spacing: 0 0.5rem;
+        }
+
+        .table tr {
+            background-color: var(--card-bg);
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3);
+            border-radius: 0.75rem;
+        }
+
+        .table td, .table th {
+            padding: 1.25rem 1rem;
+            border: none;
+            vertical-align: middle;
+        }
+
+        .table tr td:first-child { border-top-left-radius: 0.75rem; border-bottom-left-radius: 0.75rem; }
+        .table tr td:last-child { border-top-right-radius: 0.75rem; border-bottom-right-radius: 0.75rem; }
+
+        .modal-content {
+            border: 1px solid var(--border-color);
+            border-radius: 1.5rem;
+            background-color: var(--card-bg);
+        }
+
+        .breadcrumb-item a { color: var(--primary-color); }
+        .text-muted { color: var(--text-muted) !important; }
+        hr { border-color: var(--border-color); opacity: 0.5; }
     </style>
 </head>
-<body class="bg-light">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+<body>
+    <nav class="navbar navbar-expand-lg sticky-top mb-5">
         <div class="container">
-            <a class="navbar-brand" href="/">🎬 MovieHub</a>
+            <a class="navbar-brand" href="/">
+                <span class="me-2">🎬</span>MOVIEHUB
+            </a>
         </div>
     </nav>
 
-    <div class="container">
+    <div class="container pb-5">
         {% block content %}{% endblock %}
     </div>
 
-    <footer class="text-center text-muted py-4 mt-5 border-top">
-        <small>&copy; 2026 MovieHub Tracker System</small>
+    <footer class="text-center py-5 mt-5 border-top" style="border-color: var(--border-color) !important;">
+        <div class="container">
+            <p class="mb-1 fw-bold" style="color: var(--text-main);">MovieHub Tracker System</p>
+            <small class="text-muted">&copy; 2026 Designed for Cinephiles</small>
+        </div>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

@@ -1,79 +1,102 @@
 {% extends "base.html" %}
 
 {% block content %}
-<nav aria-label="breadcrumb">
+<nav aria-label="breadcrumb" class="mb-4">
   <ol class="breadcrumb">
-    <li class="breadcrumb-item"><a href="/">Home</a></li>
-    <li class="breadcrumb-item active" aria-current="page">Event Detail</li>
+    <li class="breadcrumb-item"><a href="/" class="text-decoration-none">Home</a></li>
+    <li class="breadcrumb-item active text-muted" aria-current="page">Event Detail</li>
   </ol>
 </nav>
 
-<div class="card mb-4 shadow-sm">
-    <div class="row g-0">
-        <div class="col-md-3">
-            {% if event.ImageUrl %}
-            <img src="{{ event.ImageUrl }}" class="img-fluid rounded-start h-100 object-fit-cover" alt="...">
+<div class="row g-4">
+    <!-- 왼쪽: 이벤트 상세 설명 이미지 (기다란 형태) -->
+    <div class="col-lg-4 col-md-5">
+        <div class="card event-card p-2">
+            {% if event.DetailImageUrl %}
+            <img src="{{ event.DetailImageUrl }}" class="img-fluid rounded-4 w-100" alt="Event Detail">
+            {% elif event.ImageUrl %}
+            <img src="{{ event.ImageUrl }}" class="img-fluid rounded-4 w-100" alt="Event Detail">
             {% endif %}
         </div>
-        <div class="col-md-9">
-            <div class="card-body d-flex flex-column">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <h3 class="card-title">{{ event.EventName }}</h3>
-                        <p class="card-text"><small class="text-muted">기간: {{ event.ProgressStartDate }} ~ {{ event.ProgressEndDate }}</small></p>
-                    </div>
-                    <button id="updateBtn" class="btn btn-outline-primary btn-sm">
-                        <span id="btnText">🔄 즉시 갱신 요청</span>
-                        <span id="btnSpinner" class="spinner-border spinner-border-sm d-none"></span>
-                    </button>
+    </div>
+
+    <!-- 오른쪽: 정보 및 재고 현황 -->
+    <div class="col-lg-8 col-md-7">
+        <!-- 이벤트 요약 카드 -->
+        <div class="card event-card p-4 p-lg-5 mb-4">
+            <div class="d-flex justify-content-between align-items-start mb-4">
+                <div>
+                    <span class="stock-badge badge-primary mb-3 d-inline-block">Gift ID: {{ event.GiftID }}</span>
+                    <h2 class="fw-800 mb-2">{{ event.EventName }}</h2>
+                    <p class="text-muted mb-0">일정: {{ event.ProgressStartDate }} ~ {{ event.ProgressEndDate }}</p>
                 </div>
-                <hr>
-                <h4 class="text-primary mt-auto">총 잔여 수량: {{ total_stock | format_stock }}</h4>
+                <button id="updateBtn" class="btn btn-update btn-outline-primary shadow-sm" title="즉시 갱신 요청" style="width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center;">
+                    <span id="btnIcon" style="font-size: 1.2rem;">🔄</span>
+                    <span id="btnSpinner" class="spinner-border spinner-border-sm d-none"></span>
+                </button>
             </div>
+            <hr class="my-4 opacity-10">
+            <div class="d-flex align-items-baseline">
+                <span class="text-muted me-3">전체 잔여 수량</span>
+                <h3 class="fw-800 text-primary mb-0">{{ total_stock | format_stock }}</h3>
+            </div>
+        </div>
+
+        <!-- 지점별 현황 섹션 -->
+        <div class="mb-4 d-flex align-items-center">
+            <h4 class="fw-700 mb-0">📍 지점별 현황</h4>
+            <span class="ms-3 text-muted small">지점을 클릭하면 그래프가 표시됩니다.</span>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table">
+                <thead class="text-muted small">
+                    <tr>
+                        <th class="ps-4">지역</th>
+                        <th>영화관</th>
+                        <th>재고 상태</th>
+                        <th class="pe-4 text-end">업데이트</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in inventory %}
+                    <tr class="cursor-pointer" onclick="showChart('{{ item.CinemaID }}', '{{ item.CinemaName }}')" style="cursor: pointer;">
+                        <td class="ps-4 text-muted">{{ item.DivisionName }}</td>
+                        <td class="fw-700">{{ item.CinemaName }}</td>
+                        <td>
+                            {% if item.ItemCount >= 50 %}
+                            <span class="stock-badge badge-success">{{ item.ItemCount | format_stock }}</span>
+                            {% elif item.ItemCount > 0 %}
+                            <span class="stock-badge badge-warning">{{ item.ItemCount | format_stock }}</span>
+                            {% else %}
+                            <span class="stock-badge badge-danger">{{ item.ItemCount | format_stock }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="pe-4 text-end text-muted small">{{ item.LastUpdated.strftime('%m-%d %H:%M') }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center py-5 text-muted">수집된 재고 정보가 없습니다.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
 
-<h4 class="mb-3">📍 지점별 재고 현황 (지점 클릭 시 그래프 표시)</h4>
-<div class="table-responsive bg-white shadow-sm rounded">
-    <table class="table table-hover mb-0">
-        <thead class="table-light">
-            <tr>
-                <th>지역</th>
-                <th>영화관</th>
-                <th>잔여 수량</th>
-                <th>업데이트</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for item in inventory %}
-            <tr class="cinema-row cursor-pointer {% if item.ItemCount == 0 %}table-danger{% elif item.ItemCount < 10 %}table-warning{% endif %}" 
-                onclick="showChart('{{ item.CinemaID }}', '{{ item.CinemaName }}')"
-                style="cursor: pointer;">
-                <td>{{ item.DivisionCode }} ({{ item.DetailDivisionCode }})</td>
-                <td class="fw-bold">{{ item.CinemaName }}</td>
-                <td class="fw-bold text-primary">{{ item.ItemCount | format_stock }}</td>
-                <td class="small text-muted">{{ item.LastUpdated.strftime('%m-%d %H:%M') }}</td>
-            </tr>
-            {% else %}
-            <tr>
-                <td colspan="4" class="text-center py-4 text-muted">수집된 재고 정보가 없습니다.</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-
-<!-- Chart Modal -->
+<!-- Chart Modal (기존과 동일) -->
 <div class="modal fade" id="chartModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="chartTitle">지점별 수량 변동</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content p-2">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="fw-700 ms-2" id="chartTitle">수량 변동 이력</h5>
+        <button type="button" class="btn-close me-2" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <canvas id="stockChart"></canvas>
+        <div style="height: 350px;">
+            <canvas id="stockChart"></canvas>
+        </div>
       </div>
     </div>
   </div>
@@ -88,57 +111,119 @@ async function showChart(cinemaId, cinemaName) {
     const data = await response.json();
     
     const modal = new bootstrap.Modal(document.getElementById('chartModal'));
-    document.getElementById('chartTitle').innerText = `${cinemaName} - 수량 변동 이력`;
+    document.getElementById('chartTitle').innerText = `${cinemaName} — 수량 변동 추이`;
     modal.show();
     
     const ctx = document.getElementById('stockChart').getContext('2d');
-    
     if (stockChart) stockChart.destroy();
     
-    stockChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: data.map(d => d.time),
-            datasets: [{
-                label: '잔여 수량',
-                data: data.map(d => d.count),
-                borderColor: '#0d6efd',
-                backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                tension: 0.1,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                y: { beginAtZero: true, ticks: { stepSize: 1 } }
+    const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+    gradient.addColorStop(0, 'rgba(96, 165, 250, 0.2)');
+    gradient.addColorStop(1, 'rgba(96, 165, 250, 0)');
+
+        stockChart = new Chart(ctx, {
+
+            type: 'line',
+
+            data: {
+
+                labels: data.map(d => d.time),
+
+                datasets: [{
+
+                    label: '잔여 수량',
+
+                    data: data.map(d => d.count),
+
+                    borderColor: '#60a5fa',
+
+                    borderWidth: 3,
+
+                    backgroundColor: gradient,
+
+                    tension: 0.4,
+
+                    fill: true,
+
+                    pointBackgroundColor: '#fff',
+
+                    pointBorderColor: '#60a5fa',
+
+                    pointBorderWidth: 2,
+
+                    pointRadius: 4,
+
+                    pointHoverRadius: 6
+
+                }]
+
+            },
+
+            options: {
+
+                responsive: true,
+
+                maintainAspectRatio: false,
+
+                interaction: { intersect: false, mode: 'index' },
+
+                scales: {
+
+                    y: { 
+
+                        beginAtZero: true, 
+
+                        grid: { color: '#334155' },
+
+                        ticks: { stepSize: 1, color: '#94a3b8' }
+
+                    },
+
+                    x: {
+
+                        grid: { display: false },
+
+                        ticks: { color: '#94a3b8' }
+
+                    }
+
+                },
+
+                plugins: {
+
+                    legend: { display: false }
+
+                }
+
             }
-        }
-    });
+
+        });
 }
 
 document.getElementById('updateBtn').addEventListener('click', async () => {
     const btn = document.getElementById('updateBtn');
-    const text = document.getElementById('btnText');
+    const icon = document.getElementById('btnIcon');
     const spinner = document.getElementById('btnSpinner');
-    
     btn.disabled = true;
-    text.innerText = " 갱신 중...";
+    icon.classList.add('d-none');
     spinner.classList.remove('d-none');
-    
     try {
         const response = await fetch('/api/update/{{ event.EventID }}', { method: 'POST' });
-        const result = await response.json();
-        alert('갱신 요청이 전송되었습니다. 잠시 후 새로고침 해주세요.');
+        if (response.ok) alert('재고 갱신 요청을 보냈습니다. 잠시 후 새로고침 하세요.');
     } catch (e) {
-        alert('오류가 발생했습니다.');
+        alert('연결 오류가 발생했습니다.');
     } finally {
         setTimeout(() => {
             btn.disabled = false;
-            text.innerText = "🔄 즉시 갱신 요청";
+            icon.classList.remove('d-none');
             spinner.classList.add('d-none');
         }, 2000);
     }
 });
 </script>
+
+<style>
+.fw-700 { font-weight: 700; }
+.fw-800 { font-weight: 800; }
+</style>
 {% endblock %}

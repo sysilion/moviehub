@@ -46,6 +46,7 @@ async def read_dashboard(request: Request, db: Session = Depends(get_db)):
         dashboard_data.append({
             "event": event,
             "total_stock": total_stock,
+            "gift_id": event.GiftID, # Event 모델의 GiftID 사용
             "last_updated": last_updated
         })
     return templates.TemplateResponse("index.html", {"request": request, "events": dashboard_data})
@@ -77,9 +78,24 @@ async def trigger_update(event_id: str, background_tasks: BackgroundTasks, db: S
 
 @app.get("/api/history/{event_id}/{cinema_id}")
 async def get_stock_history(event_id: str, cinema_id: str, db: Session = Depends(get_db)):
-    """특정 지점의 수량 변동 이력 데이터 반환"""
+    """특정 지점의 수량 변동 이력 데이터 반환 (현재 상태 포함)"""
+    # 1. 과거 이력 조회
     history = db.query(InventoryHistory).filter_by(EventID=event_id, CinemaID=cinema_id).order_by(InventoryHistory.RecordTime.asc()).all()
-    return [{
+    
+    data = [{
         "time": h.RecordTime.strftime("%m-%d %H:%M"),
         "count": h.ItemCount
     } for h in history]
+    
+    # 2. 현재 최신 상태 추가 (이력의 마지막보다 최신인 경우)
+    current = db.query(Inventory).filter_by(EventID=event_id, CinemaID=cinema_id).first()
+    if current:
+        current_time_str = current.LastUpdated.strftime("%m-%d %H:%M")
+        # 마지막 이력과 시간이 다르거나 이력이 없는 경우 추가
+        if not data or data[-1]["time"] != current_time_str:
+            data.append({
+                "time": current_time_str,
+                "count": current.ItemCount
+            })
+            
+    return data
