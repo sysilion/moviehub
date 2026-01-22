@@ -1,6 +1,7 @@
 import requests
 import json
 import time
+import random
 from datetime import datetime
 from sqlalchemy.orm import Session
 from src.database.models import Event, Inventory, InventoryHistory
@@ -187,26 +188,53 @@ class LotteCinemaCollector:
 
     def match_missing_gift_id(self, event_id):
         """
-        Scans for a valid GiftID for the given event_id by checking empty slots (gaps) 
-        and a small range ahead of the latest known GiftID.
+        Scans for a valid GiftID for the given event_id by checking ranges determined from neighboring events.
+        Range logic: Neighbors (EventID ± 30) -> Min GiftID to Max GiftID + 50.
+        Excludes already registered GiftIDs.
+        Delays 1~3s between requests.
         """
-        # 1. Get all used GiftIDs
+        # 1. Get all used GiftIDs (global exclusion list)
         used_gift_ids = set()
         results = self.session.query(Event.GiftID).filter(Event.GiftID != None).all()
         for r in results:
             if r.GiftID and r.GiftID.isdigit():
                 used_gift_ids.add(int(r.GiftID))
         
-        if not used_gift_ids:
-            return False
+        # 2. Determine search range from neighbors
+        try:
+            target_event_num = int(event_id)
+            neighbor_min = target_event_num - 30
+            neighbor_max = target_event_num + 30
+            
+            # Find neighbors with valid GiftIDs
+            neighbors = self.session.query(Event.GiftID).filter(
+                Event.EventID >= str(neighbor_min),
+                Event.EventID <= str(neighbor_max),
+                Event.GiftID != None
+            ).all()
+            
+            neighbor_gifts = []
+            for n in neighbors:
+                if n.GiftID and n.GiftID.isdigit():
+                    neighbor_gifts.append(int(n.GiftID))
+            
+            if neighbor_gifts:
+                search_start = min(neighbor_gifts)
+                search_end = max(neighbor_gifts) + 50
+                logger.info(f"Search range determined from {len(neighbor_gifts)} neighbors: {search_start} ~ {search_end}")
+            else:
+                # Fallback if no neighbors found
+                logger.warning(f"No neighbors found for Event {event_id}. Using global max fallback.")
+                if not used_gift_ids:
+                    return False
+                global_max = max(used_gift_ids)
+                search_start = max(1, global_max - 200)
+                search_end = global_max + 50
+        except ValueError:
+             logger.error(f"Invalid EventID format: {event_id}")
+             return False
 
-        max_gift_id = max(used_gift_ids)
-        
-        # 2. Determine candidates
-        # Search range: recent 300 IDs for gaps, plus 30 new IDs ahead
-        search_start = max(1, max_gift_id - 300)
-        search_end = max_gift_id + 30
-        
+        # 3. Generate candidates (excluding used ones)
         candidates = []
         for i in range(search_start, search_end + 1):
             if i not in used_gift_ids:
@@ -214,10 +242,13 @@ class LotteCinemaCollector:
         
         logger.info(f"Scanning {len(candidates)} candidate GiftIDs for Event {event_id}...")
         
-        # 3. Iterate and check
+        # 4. Iterate and check
         for gift_id in candidates:
+            # Random delay 1~3s
+            delay = random.uniform(1, 3)
+            time.sleep(delay)
+            
             try:
-                # Add a tiny delay to be polite, though sequential is usually fine here
                 inv = self.fetch_inventory(event_id, gift_id)
                 if inv and inv.get('CinemaDivisionGoods'):
                     logger.info(f"MATCH FOUND! Event {event_id} mapped to GiftID {gift_id}")
