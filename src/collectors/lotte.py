@@ -185,6 +185,57 @@ class LotteCinemaCollector:
             
         logger.info(f"Auto-discovery finished. Found {found_new} new items.")
 
+    def match_missing_gift_id(self, event_id):
+        """
+        Scans for a valid GiftID for the given event_id by checking empty slots (gaps) 
+        and a small range ahead of the latest known GiftID.
+        """
+        # 1. Get all used GiftIDs
+        used_gift_ids = set()
+        results = self.session.query(Event.GiftID).filter(Event.GiftID != None).all()
+        for r in results:
+            if r.GiftID and r.GiftID.isdigit():
+                used_gift_ids.add(int(r.GiftID))
+        
+        if not used_gift_ids:
+            return False
+
+        max_gift_id = max(used_gift_ids)
+        
+        # 2. Determine candidates
+        # Search range: recent 300 IDs for gaps, plus 30 new IDs ahead
+        search_start = max(1, max_gift_id - 300)
+        search_end = max_gift_id + 30
+        
+        candidates = []
+        for i in range(search_start, search_end + 1):
+            if i not in used_gift_ids:
+                candidates.append(str(i))
+        
+        logger.info(f"Scanning {len(candidates)} candidate GiftIDs for Event {event_id}...")
+        
+        # 3. Iterate and check
+        for gift_id in candidates:
+            try:
+                # Add a tiny delay to be polite, though sequential is usually fine here
+                inv = self.fetch_inventory(event_id, gift_id)
+                if inv and inv.get('CinemaDivisionGoods'):
+                    logger.info(f"MATCH FOUND! Event {event_id} mapped to GiftID {gift_id}")
+                    
+                    # Update DB
+                    detail = self.fetch_event_detail(event_id)
+                    if detail and 'InfomationDeliveryEventDetail' in detail:
+                        self.save_event(detail['InfomationDeliveryEventDetail'][0], gift_id=gift_id)
+                    
+                    self.save_inventory(event_id, gift_id, inv)
+                    return True
+            except Exception as e:
+                logger.error(f"Error checking gift {gift_id}: {e}")
+                continue
+                
+        logger.info(f"No matching GiftID found for Event {event_id} after scanning.")
+        return False
+
     def process_events(self):
         # (생략: 기존 탐색 로직 동일)
         pass

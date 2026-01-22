@@ -113,6 +113,20 @@ async def trigger_update(event_id: str, background_tasks: BackgroundTasks, db: S
     background_tasks.add_task(update_task)
     return {"status": "success", "message": "Update task started in background"}
 
+@app.post("/api/scan-gift/{event_id}")
+async def trigger_gift_scan(event_id: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """누락된 GiftID 스캔 요청"""
+    
+    def scan_task():
+        session = get_session()
+        try:
+            collector = LotteCinemaCollector(session)
+            collector.match_missing_gift_id(event_id)
+        finally: session.close()
+        
+    background_tasks.add_task(scan_task)
+    return {"status": "success", "message": "GiftID scan started in background"}
+
 @app.get("/api/history/{event_id}/{cinema_id}")
 async def get_stock_history(event_id: str, cinema_id: str, db: Session = Depends(get_db)):
     """특정 지점의 수량 변동 이력 데이터 반환 (현재 상태 포함)"""
