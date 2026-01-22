@@ -1,10 +1,31 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-end mb-5">
-    <div>
-        <h2 class="fw-800 mb-2">현재 진행 중인 이벤트</h2>
+<div class="row align-items-end mb-5 g-3">
+    <div class="col-md-6">
+        <h2 class="fw-800 mb-2">
+            {% if q %}
+                '{{ q }}' 검색 결과
+            {% elif show_ended %}
+                전체 이벤트 목록
+            {% else %}
+                현재 진행 중인 이벤트
+            {% endif %}
+        </h2>
         <p class="text-muted mb-0">실시간으로 업데이트되는 굿즈 재고 현황을 확인하세요.</p>
+    </div>
+    <div class="col-md-6">
+        <form method="get" action="/" class="d-flex flex-column align-items-md-end gap-2">
+            <div class="input-group" style="max_width: 400px;">
+                <input type="text" name="q" class="form-control" placeholder="이벤트명 검색..." value="{{ q or '' }}">
+                <button class="btn btn-dark" type="submit"><i class="bi bi-search"></i> 검색</button>
+            </div>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="showEnded" name="show_ended" value="true" 
+                       {% if show_ended %}checked{% endif %} onchange="this.form.submit()">
+                <label class="form-check-label user-select-none" for="showEnded">종료된 이벤트 포함</label>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -23,11 +44,8 @@
             </div>
             
             <div class="card-body p-4">
-                <div class="mb-3">
-                    <span class="stock-badge badge-primary">ID: {{ item.gift_id }}</span>
-                </div>
                 <h5 class="card-title fw-bold mb-3 line-clamp-2" style="height: 3rem; line-height: 1.5;">
-                    <a href="/event/{{ item.event.EventID }}" class="text-decoration-none text-dark stretched-link">
+                    <a href="/event/{{ item.event.EventID }}" class="text-decoration-none stretched-link" style="color: var(--text-main);">
                         {{ item.event.EventName }}
                     </a>
                 </h5>
@@ -56,6 +74,35 @@
     </div>
     {% endfor %}
 </div>
+
+{% if total_pages > 1 %}
+<nav aria-label="Page navigation" class="mt-5">
+    <ul class="pagination justify-content-center">
+        <!-- Previous Button -->
+        <li class="page-item {% if page == 1 %}disabled{% endif %}">
+            <a class="page-link" href="/?page={{ page - 1 }}&q={{ q or '' }}&show_ended={{ 'true' if show_ended else 'false' }}" aria-label="Previous">
+                <span aria-hidden="true">&laquo;</span>
+            </a>
+        </li>
+
+        <!-- Page Numbers -->
+        {% for p in range(1, total_pages + 1) %}
+        <li class="page-item {% if p == page %}active{% endif %}">
+            <a class="page-link" href="/?page={{ p }}&q={{ q or '' }}&show_ended={{ 'true' if show_ended else 'false' }}">
+                {{ p }}
+            </a>
+        </li>
+        {% endfor %}
+
+        <!-- Next Button -->
+        <li class="page-item {% if page == total_pages %}disabled{% endif %}">
+            <a class="page-link" href="/?page={{ page + 1 }}&q={{ q or '' }}&show_ended={{ 'true' if show_ended else 'false' }}" aria-label="Next">
+                <span aria-hidden="true">&raquo;</span>
+            </a>
+        </li>
+    </ul>
+</nav>
+{% endif %}
 
 <style>
 .line-clamp-2 {

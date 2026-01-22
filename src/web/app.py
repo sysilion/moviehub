@@ -1,12 +1,14 @@
+import math
 from fastapi import FastAPI, Request, Depends, BackgroundTasks
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from src.database.models import get_session, Event, Inventory, InventoryHistory
 from src.scheduler.main import start_scheduler, stop_scheduler, scheduler
 from src.collectors.lotte import LotteCinemaCollector
 from contextlib import asynccontextmanager
+from datetime import datetime
 import os
 
 # 템플릿 설정
@@ -37,8 +39,34 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 @app.get("/", response_class=HTMLResponse)
-async def read_dashboard(request: Request, db: Session = Depends(get_db)):
-    events = db.query(Event).order_by(Event.ProgressStartDate.desc()).all()
+async def read_dashboard(
+    request: Request, 
+    q: str = None, 
+    show_ended: bool = False, 
+    page: int = 1,
+    limit: int = 30,
+    db: Session = Depends(get_db)
+):
+    query = db.query(Event)
+    
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    
+    # 검색어가 있으면 날짜 필터 무시하고 검색 결과 전체 반환
+    if q:
+        query = query.filter(Event.EventName.ilike(f"%{q}%"))
+    else:
+        # 검색어가 없을 때만 종료된 이벤트 필터링 적용
+        if not show_ended:
+            query = query.filter(or_(Event.ProgressEndDate >= today_str, Event.ProgressEndDate == None))
+
+    # 전체 개수 계산 (페이지네이션 전)
+    total_count = query.count()
+    total_pages = math.ceil(total_count / limit)
+    
+    # 페이지네이션 적용
+    offset = (page - 1) * limit
+    events = query.order_by(Event.ProgressStartDate.desc()).offset(offset).limit(limit).all()
+    
     dashboard_data = []
     for event in events:
         total_stock = db.query(func.sum(Inventory.ItemCount)).filter(Inventory.EventID == event.EventID).scalar() or 0
@@ -46,10 +74,19 @@ async def read_dashboard(request: Request, db: Session = Depends(get_db)):
         dashboard_data.append({
             "event": event,
             "total_stock": total_stock,
-            "gift_id": event.GiftID, # Event 모델의 GiftID 사용
+            "gift_id": event.GiftID,
             "last_updated": last_updated
         })
-    return templates.TemplateResponse("index.html", {"request": request, "events": dashboard_data})
+        
+    return templates.TemplateResponse("index.html", {
+        "request": request, 
+        "events": dashboard_data,
+        "q": q,
+        "show_ended": show_ended,
+        "page": page,
+        "total_pages": total_pages,
+        "total_count": total_count
+    })
 
 @app.get("/event/{event_id}", response_class=HTMLResponse)
 async def read_event_detail(request: Request, event_id: str, db: Session = Depends(get_db)):

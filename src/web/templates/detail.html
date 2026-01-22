@@ -26,8 +26,10 @@
         <div class="card event-card p-4 p-lg-5 mb-4">
             <div class="d-flex justify-content-between align-items-start mb-4">
                 <div>
-                    <span class="stock-badge badge-primary mb-3 d-inline-block">Gift ID: {{ event.GiftID }}</span>
-                    <h2 class="fw-800 mb-2">{{ event.EventName }}</h2>
+                    <h2 class="fw-800 mb-2">
+                        {{ event.EventName }}
+                        <span class="ms-1" style="cursor: help; font-size: 1.2rem;" title="Gift ID: {{ event.GiftID }}">🎁</span>
+                    </h2>
                     <p class="text-muted mb-0">일정: {{ event.ProgressStartDate }} ~ {{ event.ProgressEndDate }}</p>
                 </div>
                 <button id="updateBtn" class="btn btn-update btn-outline-primary shadow-sm" title="즉시 갱신 요청" style="width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center;">
@@ -209,9 +211,9 @@ document.getElementById('updateBtn').addEventListener('click', async () => {
     spinner.classList.remove('d-none');
     try {
         const response = await fetch('/api/update/{{ event.EventID }}', { method: 'POST' });
-        if (response.ok) alert('재고 갱신 요청을 보냈습니다. 잠시 후 새로고침 하세요.');
+        if (response.ok) showToast('재고 갱신 요청을 보냈습니다. 잠시 후 새로고침 하세요.', 'success');
     } catch (e) {
-        alert('연결 오류가 발생했습니다.');
+        showToast('연결 오류가 발생했습니다.', 'danger');
     } finally {
         setTimeout(() => {
             btn.disabled = false;

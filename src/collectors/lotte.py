@@ -120,9 +120,70 @@ class LotteCinemaCollector:
             return True
         return False
 
-    def scan_gift_ids(self, event_id, base_gift_id):
-        # (생략: 기존 스캔 로직 동일)
-        pass
+    def get_latest_event_id(self):
+        last_event = self.session.query(Event.EventID).order_by(Event.EventID.desc()).first()
+        return last_event[0] if last_event else None
+
+    def get_latest_gift_id(self):
+        last_gift = self.session.query(Event.GiftID).filter(Event.GiftID != None).order_by(Event.GiftID.desc()).first()
+        return last_gift[0] if last_gift else None
+
+    def discover_new_events(self):
+        """
+        Automatically discovers new events by incrementing from the last known EventID and GiftID.
+        """
+        last_event_id = self.get_latest_event_id()
+        last_gift_id = self.get_latest_gift_id()
+
+        if not last_event_id or not last_gift_id:
+            logger.warning("No existing events or gifts found to increment from.")
+            return
+
+        start_event_num = int(last_event_id) + 1
+        start_gift_num = int(last_gift_id)
+        
+        # Define search bounds
+        max_events_to_check = 20
+        max_gifts_to_check = 50 
+        
+        logger.info(f"Auto-discovery started. Base Event: {last_event_id}, Base Gift: {last_gift_id}")
+
+        current_gift_cursor = start_gift_num
+        found_new = 0
+
+        for i in range(max_events_to_check):
+            event_num = start_event_num + i
+            event_id = str(event_num)
+            
+            try:
+                detail = self.fetch_event_detail(event_id)
+            except Exception:
+                continue
+
+            if not (detail and 'InfomationDeliveryEventDetail' in detail and detail['InfomationDeliveryEventDetail']):
+                continue
+                
+            event_info = detail['InfomationDeliveryEventDetail'][0]
+            self.save_event(event_info, gift_id=None)
+            logger.info(f"Discovered potential event: {event_id} - {event_info.get('EventName')}")
+
+            matched = False
+            # Check a range of gifts starting from current cursor
+            for j in range(max_gifts_to_check):
+                gift_num = current_gift_cursor + j
+                gift_id = str(gift_num)
+                inv = self.fetch_inventory(event_id, gift_id)
+                if inv and inv.get('CinemaDivisionGoods'):
+                    logger.info(f"  -> MATCH: Gift {gift_id} for Event {event_id}")
+                    self.save_event(event_info, gift_id=gift_id)
+                    self.save_inventory(event_id, gift_id, inv)
+                    
+                    current_gift_cursor = gift_num
+                    found_new += 1
+                    matched = True
+                    break 
+            
+        logger.info(f"Auto-discovery finished. Found {found_new} new items.")
 
     def process_events(self):
         # (생략: 기존 탐색 로직 동일)

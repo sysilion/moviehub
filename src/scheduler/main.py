@@ -77,11 +77,13 @@ class MovieHubScheduler:
             self.scheduler.remove_job(job_id)
 
     def main_discovery_job(self):
-        """활성 이벤트를 찾아 각각의 스케줄에 등록하는 메인 관리 작업"""
+        """활성 이벤트를 찾아 각각의 스케줄에 등록하는 메인 관리 작업 (동적 주기 적용)"""
         logger.info("=== Main Discovery Job Started ===")
         session = get_session()
         try:
-            # collector.process_events() # 요청에 의해 비활성화 유지
+            # 신규 이벤트/굿즈 자동 탐색 실행
+            collector = LotteCinemaCollector(session)
+            collector.discover_new_events()
             
             now_str = datetime.now().strftime("%Y-%m-%d")
             active_targets = session.query(Inventory.EventID, Inventory.GiftID).distinct().join(
@@ -92,7 +94,6 @@ class MovieHubScheduler:
 
             for event_id, gift_id in active_targets:
                 job_id = f"job_{event_id}"
-                # 이미 스케줄링된 작업이 없다면 새로 등록
                 if not self.scheduler.get_job(job_id):
                     total_stock = session.query(func.sum(Inventory.ItemCount)).filter_by(EventID=event_id, GiftID=gift_id).scalar() or 0
                     if total_stock > 0:
@@ -104,14 +105,30 @@ class MovieHubScheduler:
         finally:
             session.close()
 
+        # 다음 탐색 작업 예약 (동적 주기 적용)
+        now = datetime.now()
+        if 9 <= now.hour < 18:
+            # 활동 시간: 10~15분 랜덤
+            next_interval = random.randint(600, 900)
+        else:
+            # 비활동 시간: 1~3시간 랜덤
+            next_interval = random.randint(3600, 10800)
+            
+        run_time = datetime.now() + timedelta(seconds=next_interval)
+        self.scheduler.add_job(
+            self.main_discovery_job,
+            'date',
+            run_date=run_time,
+            id='main_discovery',
+            replace_existing=True
+        )
+        logger.info(f"Next Discovery Job scheduled at {run_time.strftime('%H:%M:%S')} (in {next_interval}s)")
+
     def start(self):
         init_db()
         self.running = True
         
-        # 메인 관리 작업: 1시간마다 새로운 활성 이벤트가 있는지 체크
-        self.scheduler.add_job(self.main_discovery_job, 'interval', hours=1, id='main_discovery')
-        
-        # 즉시 한 번 실행하여 현재 활성 타겟들 등록
+        # 즉시 한 번 실행하여 탐색 루프 시작
         self.main_discovery_job()
         
         self.scheduler.start()
