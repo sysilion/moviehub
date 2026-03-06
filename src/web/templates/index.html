@@ -16,17 +16,25 @@
     </div>
     <div class="col-md-6">
         <form method="get" action="/" class="d-flex flex-column align-items-md-end gap-2">
-            <div class="input-group" style="max_width: 400px;">
+            <div class="input-group" style="max-width: 400px;">
                 <input type="text" name="q" class="form-control" placeholder="이벤트명 검색..." value="{{ q or '' }}">
                 <button class="btn btn-dark" type="submit"><i class="bi bi-search"></i> 검색</button>
             </div>
-            <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" id="showEnded" name="show_ended" value="true" 
-                       {% if show_ended %}checked{% endif %} onchange="this.form.submit()">
-                <label class="form-check-label user-select-none" for="showEnded">종료된 이벤트 포함</label>
+            <div class="d-flex gap-3">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="showAll" name="show_all" value="true" 
+                           {% if show_all %}checked{% endif %} onchange="this.form.submit()">
+                    <label class="form-check-label user-select-none" for="showAll">전체 이벤트 보기</label>
+                </div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="showEnded" name="show_ended" value="true" 
+                           {% if show_ended %}checked{% endif %} onchange="this.form.submit()">
+                    <label class="form-check-label user-select-none" for="showEnded">종료된 이벤트 포함</label>
+                </div>
             </div>
         </form>
     </div>
+
 </div>
 
 <div class="row row-cols-1 row-cols-lg-2 g-4">
@@ -48,6 +56,11 @@
                     <a href="/event/{{ item.event.EventID }}" class="text-decoration-none stretched-link" style="color: var(--text-main);">
                         {{ item.event.EventName }}
                     </a>
+                    {% if item.event.GiftID %}
+                    <span class="ms-1 position-relative" style="font-size: 1rem; z-index: 2; cursor: help;" data-bs-toggle="tooltip" data-bs-placement="top" title="확인된 굿즈 번호: {{ item.event.GiftID }}">🎁</span>
+                    {% elif item.is_potential %}
+                    <span class="ms-1 position-relative" style="font-size: 1rem; z-index: 2; cursor: help;" data-bs-toggle="tooltip" data-bs-placement="top" title="굿즈 번호 미할당 (예상 이벤트)">🔍</span>
+                    {% endif %}
                 </h5>
                 <p class="text-muted small mb-4">
                     <i class="bi bi-calendar-event me-1"></i>
@@ -80,7 +93,7 @@
     <ul class="pagination justify-content-center">
         <!-- Previous Button -->
         <li class="page-item {% if page == 1 %}disabled{% endif %}">
-            <a class="page-link" href="/?page={{ page - 1 }}&q={{ q or '' }}&show_ended={{ 'true' if show_ended else 'false' }}" aria-label="Previous">
+            <a class="page-link" href="/?page={{ page - 1 }}&q={{ q or '' }}&show_ended={{ 'true' if show_ended else 'false' }}&show_all={{ 'true' if show_all else 'false' }}" aria-label="Previous">
                 <span aria-hidden="true">&laquo;</span>
             </a>
         </li>
@@ -88,7 +101,7 @@
         <!-- Page Numbers -->
         {% for p in range(1, total_pages + 1) %}
         <li class="page-item {% if p == page %}active{% endif %}">
-            <a class="page-link" href="/?page={{ p }}&q={{ q or '' }}&show_ended={{ 'true' if show_ended else 'false' }}">
+            <a class="page-link" href="/?page={{ p }}&q={{ q or '' }}&show_ended={{ 'true' if show_ended else 'false' }}&show_all={{ 'true' if show_all else 'false' }}">
                 {{ p }}
             </a>
         </li>
@@ -96,7 +109,7 @@
 
         <!-- Next Button -->
         <li class="page-item {% if page == total_pages %}disabled{% endif %}">
-            <a class="page-link" href="/?page={{ page + 1 }}&q={{ q or '' }}&show_ended={{ 'true' if show_ended else 'false' }}" aria-label="Next">
+            <a class="page-link" href="/?page={{ page + 1 }}&q={{ q or '' }}&show_ended={{ 'true' if show_ended else 'false' }}&show_all={{ 'true' if show_all else 'false' }}" aria-label="Next">
                 <span aria-hidden="true">&raquo;</span>
             </a>
         </li>
@@ -113,4 +126,12 @@
 }
 .smaller { font-size: 0.8rem; }
 </style>
+<script>
+    // Initialize Tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    })
+</script>
+
 {% endblock %}

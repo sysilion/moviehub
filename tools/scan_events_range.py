@@ -13,11 +13,11 @@ logger = get_logger("RangeScan")
 
 def main():
     # Configuration
-    start_event_num = 201010016925850
-    end_event_num = 201010016925863
+    start_event_num = 201010014726004
+    end_event_num = 201010014726004
     
-    start_gift_num = 13684
-    end_gift_num = 13706
+    start_gift_num = 13700
+    end_gift_num = collector.get_gift_id_search_limit()
     
     # Initialize DB
     engine = get_engine()

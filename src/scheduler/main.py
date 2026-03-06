@@ -13,7 +13,12 @@ logger = get_logger("Scheduler")
 
 class MovieHubScheduler:
     def __init__(self):
-        self.scheduler = BackgroundScheduler()
+        # 데몬 스레드를 사용하도록 설정하여 프로세스 종료 시 함께 종료되도록 함
+        self.scheduler = BackgroundScheduler(
+            job_defaults={'misfire_grace_time': 30, 'coalesce': True},
+            # job을 관리하는 스레드 풀을 데몬으로 설정
+            executors={'default': {'type': 'threadpool', 'max_workers': 5}}
+        )
         self.running = False
 
     def get_tracking_interval(self):
@@ -135,9 +140,15 @@ class MovieHubScheduler:
         logger.info("Background scheduler with per-event jobs started.")
 
     def stop(self):
-        self.running = False
-        self.scheduler.shutdown()
-        logger.info("Scheduler shut down.")
+        if self.running:
+            self.running = False
+            # wait=False를 주어 즉시 종료를 시도하고, 
+            # 이미 실행 중인 작업이 있어도 셧다운을 진행합니다.
+            try:
+                self.scheduler.shutdown(wait=False)
+                logger.info("Scheduler shut down successfully.")
+            except Exception as e:
+                logger.error(f"Error during scheduler shutdown: {e}")
 
 _hub_scheduler = MovieHubScheduler()
 scheduler = _hub_scheduler 

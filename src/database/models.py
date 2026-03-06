@@ -55,10 +55,23 @@ class InventoryHistory(Base):
     ItemCount = Column(Integer)
     RecordTime = Column(DateTime, default=datetime.now)
 
+_engine = None
+
 def get_engine(db_url=None):
+    global _engine
+    if _engine:
+        return _engine
+
     if not db_url:
         db_url = os.getenv('DATABASE_URL', 'sqlite:///moviehub.db')
-    return create_engine(db_url)
+    
+    # SQLite의 경우 멀티스레드 환경(FastAPI + Scheduler)에서 check_same_thread=False 필요
+    connect_args = {}
+    if db_url.startswith('sqlite'):
+        connect_args = {'check_same_thread': False}
+
+    _engine = create_engine(db_url, connect_args=connect_args)
+    return _engine
 
 def get_session(engine=None):
     if not engine:

@@ -2,12 +2,13 @@ import sys
 import os
 import time
 import random
-from src.database.models import get_session, Event
-from src.collectors.lotte import LotteCinemaCollector
-from src.utils.logger import get_logger
 
 # Add root to path
 sys.path.append(os.getcwd())
+
+from src.database.models import get_session, Event
+from src.collectors.lotte import LotteCinemaCollector
+from src.utils.logger import get_logger
 
 logger = get_logger("MissingScan")
 
@@ -32,27 +33,19 @@ def main():
     session = get_session()
     collector = LotteCinemaCollector(session)
     
-    # 대상 EventID 구간 (137개 대량 구간 제외)
+    # 대상 EventID 구간
     missing_ranges = [
-        (201010016925835, 201010016925839),
-        (201010016925842, 201010016925849),
-        (201010016925853, 201010016925853),
-        # (201010016925864, 201010016926000), # 제외됨
-        (201010016926010, 201010016926010),
-        (201010016926021, 201010016926021),
-        (201010016926050, 201010016926050),
-        (201010016926052, 201010016926052),
-        (201010016926057, 201010016926057)
+        (201010024726007, 201010024726007)
     ]
     
     # 비어있는 GiftID 후보 추출
-    gift_scan_start = 13658
-    gift_scan_end = 13830
+    gift_scan_start = 13000
+    gift_scan_end = collector.get_gift_id_search_limit()
     candidate_gift_ids = get_empty_gift_ids(session, gift_scan_start, gift_scan_end)
     
     print(f"Target Event Ranges: {len(missing_ranges)} groups")
     print(f"Empty GiftID Candidates: {len(candidate_gift_ids)} IDs")
-    print(f"Delay: 1~5 seconds per request")
+    print(f"Delay: 0.5~1.5 seconds per request")
     
     found_count = 0
     
@@ -64,7 +57,7 @@ def main():
             
             # 1. 이벤트 존재 여부 확인
             try:
-                delay = random.uniform(1, 5)
+                delay = random.uniform(0.5, 1.5)
                 time.sleep(delay)
                 detail = collector.fetch_event_detail(event_id)
                 if not (detail and 'InfomationDeliveryEventDetail' in detail and detail['InfomationDeliveryEventDetail']):
@@ -90,7 +83,7 @@ def main():
             for gift_num in candidates_to_check:
                 gift_id = str(gift_num)
                 try:
-                    delay = random.uniform(1, 5)
+                    delay = random.uniform(0.5, 1.5)
                     time.sleep(delay)
                     inv_data = collector.fetch_inventory(event_id, gift_id)
                     if inv_data and inv_data.get('CinemaDivisionGoods'):

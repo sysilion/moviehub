@@ -8,7 +8,7 @@ from src.database.models import get_session, Event, Inventory, InventoryHistory
 from src.scheduler.main import start_scheduler, stop_scheduler, scheduler
 from src.collectors.lotte import LotteCinemaCollector
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 
 # 템플릿 설정
@@ -38,11 +38,16 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+# 굿즈 판별 키워드
+GOODS_KEYWORDS = ["증정", "뱃지", "아트카드", "artcard", "무비티켓", "키링", "시그니처"]
+EXCLUDE_KEYWORDS = ["콤보", "런칭"]
+
 @app.get("/", response_class=HTMLResponse)
 async def read_dashboard(
     request: Request, 
     q: str = None, 
     show_ended: bool = False, 
+    show_all: bool = False,
     page: int = 1,
     limit: int = 30,
     db: Session = Depends(get_db)
@@ -51,6 +56,19 @@ async def read_dashboard(
     
     today_str = datetime.now().strftime("%Y-%m-%d")
     
+    # 기본적으로 굿즈 관련 이벤트만 노출 (show_all이 False일 때 필터 적용)
+    if not show_all:
+        goods_filters = [Event.GiftID != None]
+        for kw in GOODS_KEYWORDS:
+            goods_filters.append(Event.EventName.ilike(f"%{kw}%"))
+        
+        # 합집합(확정 OR 예상 키워드) 적용
+        query = query.filter(or_(*goods_filters))
+        
+        # 제외 키워드 적용 (NOT LIKE)
+        for ex_kw in EXCLUDE_KEYWORDS:
+            query = query.filter(Event.EventName.not_ilike(f"%{ex_kw}%"))
+
     # 검색어가 있으면 날짜 필터 무시하고 검색 결과 전체 반환
     if q:
         query = query.filter(Event.EventName.ilike(f"%{q}%"))
@@ -71,11 +89,21 @@ async def read_dashboard(
     for event in events:
         total_stock = db.query(func.sum(Inventory.ItemCount)).filter(Inventory.EventID == event.EventID).scalar() or 0
         last_updated = db.query(func.max(Inventory.LastUpdated)).filter(Inventory.EventID == event.EventID).scalar()
+        
+        # 굿즈 예상 여부 판별 (제외 키워드 포함)
+        is_potential = False
+        event_name_lower = event.EventName.lower()
+        if not event.GiftID:
+            has_good_kw = any(kw.lower() in event_name_lower for kw in GOODS_KEYWORDS)
+            has_exclude_kw = any(ex_kw.lower() in event_name_lower for ex_kw in EXCLUDE_KEYWORDS)
+            is_potential = has_good_kw and not has_exclude_kw
+
         dashboard_data.append({
             "event": event,
             "total_stock": total_stock,
             "gift_id": event.GiftID,
-            "last_updated": last_updated
+            "last_updated": last_updated,
+            "is_potential": is_potential
         })
         
     return templates.TemplateResponse("index.html", {
@@ -83,6 +111,7 @@ async def read_dashboard(
         "events": dashboard_data,
         "q": q,
         "show_ended": show_ended,
+        "show_all": show_all,
         "page": page,
         "total_pages": total_pages,
         "total_count": total_count
@@ -100,14 +129,20 @@ async def read_event_detail(request: Request, event_id: str, db: Session = Depen
 @app.post("/api/update/{event_id}")
 async def trigger_update(event_id: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """즉시 수량 갱신 요청"""
-    inv = db.query(Inventory).filter_by(EventID=event_id).first()
-    if not inv: return JSONResponse({"status": "error", "message": "No GiftID found for this event"}, status_code=400)
+    event = db.query(Event).filter_by(EventID=event_id).first()
+    if not event or not event.GiftID: 
+        return JSONResponse({"status": "error", "message": "No GiftID found for this event. Please find GiftID first."}, status_code=400)
+    
+    gift_id = event.GiftID
     
     def update_task():
         session = get_session()
         try:
             collector = LotteCinemaCollector(session)
-            collector.collect_target_inventory(event_id, inv.GiftID)
+            if collector.collect_target_inventory(event_id, gift_id):
+                # 갱신 성공 시 스케줄러에 잡이 없으면 등록
+                if not scheduler.scheduler.get_job(f"job_{event_id}"):
+                    scheduler.schedule_single_event(event_id, gift_id)
         finally: session.close()
         
     background_tasks.add_task(update_task)
@@ -121,7 +156,13 @@ async def trigger_gift_scan(event_id: str, background_tasks: BackgroundTasks, db
         session = get_session()
         try:
             collector = LotteCinemaCollector(session)
-            collector.match_missing_gift_id(event_id)
+            if collector.match_missing_gift_id(event_id):
+                # 굿즈 매칭 성공 시 즉시 인벤토리 갱신 및 스케줄러 등록
+                event = session.query(Event).filter_by(EventID=event_id).first()
+                if event and event.GiftID:
+                    collector.collect_target_inventory(event_id, event.GiftID)
+                    if not scheduler.scheduler.get_job(f"job_{event_id}"):
+                        scheduler.schedule_single_event(event_id, event.GiftID)
         finally: session.close()
         
     background_tasks.add_task(scan_task)
@@ -130,23 +171,38 @@ async def trigger_gift_scan(event_id: str, background_tasks: BackgroundTasks, db
 @app.get("/api/history/{event_id}/{cinema_id}")
 async def get_stock_history(event_id: str, cinema_id: str, db: Session = Depends(get_db)):
     """특정 지점의 수량 변동 이력 데이터 반환 (현재 상태 포함)"""
+    event = db.query(Event).filter(Event.EventID == event_id).first()
+    start_dt = None
+    if event and event.ProgressStartDate:
+        try:
+            start_dt = datetime.strptime(event.ProgressStartDate, "%Y-%m-%d")
+        except ValueError:
+            start_dt = None
+
+    pre_start_index = 0
+    def build_point(record_time: datetime, count: int):
+        nonlocal pre_start_index
+        display_time = record_time
+        if start_dt and record_time < start_dt:
+            display_time = start_dt + timedelta(hours=6 + pre_start_index)
+            pre_start_index += 1
+        return {
+            "time": display_time.isoformat(timespec="seconds"),
+            "actual_time": record_time.strftime("%m-%d %H:%M"),
+            "count": count
+        }
+
     # 1. 과거 이력 조회
     history = db.query(InventoryHistory).filter_by(EventID=event_id, CinemaID=cinema_id).order_by(InventoryHistory.RecordTime.asc()).all()
     
-    data = [{
-        "time": h.RecordTime.strftime("%m-%d %H:%M"),
-        "count": h.ItemCount
-    } for h in history]
+    data = [build_point(h.RecordTime, h.ItemCount) for h in history]
     
     # 2. 현재 최신 상태 추가 (이력의 마지막보다 최신인 경우)
     current = db.query(Inventory).filter_by(EventID=event_id, CinemaID=cinema_id).first()
     if current:
-        current_time_str = current.LastUpdated.strftime("%m-%d %H:%M")
+        current_time_str = current.LastUpdated.isoformat(timespec="seconds")
         # 마지막 이력과 시간이 다르거나 이력이 없는 경우 추가
-        if not data or data[-1]["time"] != current_time_str:
-            data.append({
-                "time": current_time_str,
-                "count": current.ItemCount
-            })
+        if not data or data[-1]["actual_time"] != current.LastUpdated.strftime("%m-%d %H:%M"):
+            data.append(build_point(current.LastUpdated, current.ItemCount))
             
     return data
