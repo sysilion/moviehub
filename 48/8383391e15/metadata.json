@@ -3,12 +3,14 @@
   "checkpoint_id": "488383391e15",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 9,
+  "checkpoints_count": 10,
   "files_touched": [
     "main.py",
     "src/collectors/lotte.py",
+    "src/database/models.py",
     "src/scheduler/main.py",
     "src/web/app.py",
+    "src/web/templates/detail.html",
     "src/web/templates/index.html",
     "tools/scan_events_range.py",
     "tools/scan_missing_events.py"
@@ -20,13 +22,20 @@
       "context": "/48/8383391e15/0/context.md",
       "content_hash": "/48/8383391e15/0/content_hash.txt",
       "prompt": "/48/8383391e15/0/prompt.txt"
+    },
+    {
+      "metadata": "/48/8383391e15/1/metadata.json",
+      "transcript": "/48/8383391e15/1/full.jsonl",
+      "context": "/48/8383391e15/1/context.md",
+      "content_hash": "/48/8383391e15/1/content_hash.txt",
+      "prompt": "/48/8383391e15/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 3035330,
+    "input_tokens": 3164919,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 1997820,
-    "output_tokens": 32936,
-    "api_call_count": 47
+    "cache_read_tokens": 2038978,
+    "output_tokens": 33753,
+    "api_call_count": 50
   }
 }
