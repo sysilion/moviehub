@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.4.9",
+  "checkpoint_id": "488383391e15",
+  "session_id": "84b1d953-1112-4b30-8d3f-2e8ecdb77cfe",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-06T03:31:31.141542Z",
+  "branch": "main",
+  "checkpoints_count": 9,
+  "files_touched": [
+    "main.py",
+    "src/collectors/lotte.py",
+    "src/scheduler/main.py",
+    "src/web/app.py",
+    "src/web/templates/index.html",
+    "tools/scan_events_range.py",
+    "tools/scan_missing_events.py"
+  ],
+  "agent": "Gemini CLI",
+  "turn_id": "130ad7975317",
+  "token_usage": {
+    "input_tokens": 3035330,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 1997820,
+    "output_tokens": 32936,
+    "api_call_count": 47
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-06T03:31:30.903348Z",
+    "agent_lines": 6,
+    "human_added": 289,
+    "human_modified": 133,
+    "human_removed": 0,
+    "total_committed": 428,
+    "agent_percentage": 1.4018691588785046
+  }
+}
