@@ -1,0 +1,46 @@
+{
+  "cli_version": "0.4.9",
+  "checkpoint_id": "a39d156a7c89",
+  "session_id": "da962e4f-161d-4cb3-adb3-c299f1511032",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-10T08:20:46.806416Z",
+  "branch": "main",
+  "checkpoints_count": 15,
+  "files_touched": [
+    "api/index.py",
+    "src/collectors/base.py",
+    "src/collectors/cgv.py",
+    "src/collectors/cineq.py",
+    "src/collectors/lotte.py",
+    "src/collectors/megabox.py",
+    "src/database/models.py",
+    "src/scheduler/main.py",
+    "src/utils/notifier.py",
+    "src/web/app.py",
+    "src/web/templates/index.html",
+    "tools/debug_collectors.py",
+    "tools/discover_apis.py",
+    "tools/migrate_db.py",
+    "vercel.json"
+  ],
+  "agent": "Gemini CLI",
+  "turn_id": "439b83ea5597",
+  "checkpoint_transcript_start": 5,
+  "transcript_lines_at_start": 5,
+  "token_usage": {
+    "input_tokens": 13500936,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 11746905,
+    "output_tokens": 63863,
+    "api_call_count": 122
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-10T08:20:46.344733Z",
+    "agent_lines": 790,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 790,
+    "agent_percentage": 100
+  }
+}
