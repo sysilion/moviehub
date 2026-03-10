@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.4.9",
+  "checkpoint_id": "9cf3a6b8b859",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "api/index.py",
+    "main.py",
+    "requirements.txt",
+    "vercel.json"
+  ],
+  "sessions": [
+    {
+      "metadata": "/9c/f3a6b8b859/0/metadata.json",
+      "transcript": "/9c/f3a6b8b859/0/full.jsonl",
+      "context": "/9c/f3a6b8b859/0/context.md",
+      "content_hash": "/9c/f3a6b8b859/0/content_hash.txt",
+      "prompt": "/9c/f3a6b8b859/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 14906184,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 13042023,
+    "output_tokens": 65940,
+    "api_call_count": 132
+  }
+}
