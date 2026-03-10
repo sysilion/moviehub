@@ -13,6 +13,7 @@ class Event(Base):
     __tablename__ = 'events'
 
     EventID = Column(String, primary_key=True)
+    Operator = Column(String, default="LOTTE", index=True) # 운영사 (LOTTE, CGV, MEGABOX, CINEQ)
     EventName = Column(String)
     GiftID = Column(String, nullable=True) # 굿즈 번호 필드 추가
     EventClassificationCode = Column(String, nullable=True)
@@ -69,6 +70,15 @@ def get_engine(db_url=None):
     connect_args = {}
     if db_url.startswith('sqlite'):
         connect_args = {'check_same_thread': False}
+    else:
+        # Postgres 등 외부 DB 사용 시 연결 풀 설정 보강
+        return create_engine(
+            db_url,
+            pool_size=5,
+            max_overflow=10,
+            pool_recycle=3600,
+            pool_pre_ping=True
+        )
 
     _engine = create_engine(db_url, connect_args=connect_args)
     return _engine

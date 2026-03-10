@@ -15,8 +15,21 @@
         <p class="text-muted mb-0">실시간으로 업데이트되는 굿즈 재고 현황을 확인하세요.</p>
     </div>
     <div class="col-md-6">
-        <form method="get" action="/" class="d-flex flex-column align-items-md-end gap-2">
+        <div class="d-flex flex-wrap gap-2 mb-3 mb-md-0 justify-content-md-end">
+            <a href="/?q={{ q or '' }}&show_all={{ 'true' if show_all else 'false' }}&show_ended={{ 'true' if show_ended else 'false' }}" 
+               class="btn btn-sm btn-outline-secondary {% if not operator %}active{% endif %}">전체</a>
+            <a href="/?operator=LOTTE&q={{ q or '' }}&show_all={{ 'true' if show_all else 'false' }}&show_ended={{ 'true' if show_ended else 'false' }}" 
+               class="btn btn-sm btn-outline-danger {% if operator == 'LOTTE' %}active{% endif %}">롯데시네마</a>
+            <a href="/?operator=CGV&q={{ q or '' }}&show_all={{ 'true' if show_all else 'false' }}&show_ended={{ 'true' if show_ended else 'false' }}" 
+               class="btn btn-sm btn-outline-dark {% if operator == 'CGV' %}active{% endif %}" style="border-color: #e71a0f; color: #e71a0f;">CGV</a>
+            <a href="/?operator=MEGABOX&q={{ q or '' }}&show_all={{ 'true' if show_all else 'false' }}&show_ended={{ 'true' if show_ended else 'false' }}" 
+               class="btn btn-sm btn-outline-primary {% if operator == 'MEGABOX' %}active{% endif %}" style="border-color: #352262; color: #352262;">메가박스</a>
+            <a href="/?operator=CINEQ&q={{ q or '' }}&show_all={{ 'true' if show_all else 'false' }}&show_ended={{ 'true' if show_ended else 'false' }}" 
+               class="btn btn-sm btn-outline-info {% if operator == 'CINEQ' %}active{% endif %}" style="border-color: #0054a6; color: #0054a6;">씨네Q</a>
+        </div>
+        <form method="get" action="/" class="d-flex flex-column align-items-md-end gap-2 mt-2">
             <div class="input-group" style="max-width: 400px;">
+                <input type="hidden" name="operator" value="{{ operator or '' }}">
                 <input type="text" name="q" class="form-control" placeholder="이벤트명 검색..." value="{{ q or '' }}">
                 <button class="btn btn-dark" type="submit"><i class="bi bi-search"></i> 검색</button>
             </div>
@@ -52,6 +65,19 @@
             </div>
             
             <div class="card-body p-4">
+                <div class="mb-2 position-relative" style="z-index: 2;">
+                    {% if item.event.Operator == 'LOTTE' %}
+                    <span class="badge" style="background-color: #ed1c24;">롯데시네마</span>
+                    {% elif item.event.Operator == 'CGV' %}
+                    <span class="badge" style="background-color: #e71a0f;">CGV</span>
+                    {% elif item.event.Operator == 'MEGABOX' %}
+                    <span class="badge" style="background-color: #352262;">메가박스</span>
+                    {% elif item.event.Operator == 'CINEQ' %}
+                    <span class="badge" style="background-color: #0054a6;">씨네Q</span>
+                    {% else %}
+                    <span class="badge bg-secondary">기타</span>
+                    {% endif %}
+                </div>
                 <h5 class="card-title fw-bold mb-3 line-clamp-2" style="height: 3rem; line-height: 1.5;">
                     <a href="/event/{{ item.event.EventID }}" class="text-decoration-none stretched-link" style="color: var(--text-main);">
                         {{ item.event.EventName }}

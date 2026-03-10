@@ -1,17 +1,19 @@
-import json
+from datetime import datetime
 import random
 import time
-from datetime import datetime
+import json
 
 import requests
 from sqlalchemy.orm import Session
 from src.database.models import Event, Inventory, InventoryHistory
 from src.utils.logger import get_logger
+from src.collectors.base import BaseCollector
+from src.utils.notifier import notifier
 
 logger = get_logger("LotteCollector")
 
 
-class LotteCinemaCollector:
+class LotteCinemaCollector(BaseCollector):
     BASE_URL = "https://www.lottecinema.co.kr/LCWS/Event/EventData.aspx"
     HEADERS = {
         "Accept": "application/json, text/plain, */*",
@@ -84,8 +86,10 @@ class LotteCinemaCollector:
             return None
         event = self.session.query(Event).filter_by(EventID=event_id).first()
         if not event:
-            event = Event(EventID=event_id)
+            event = Event(EventID=event_id, Operator="LOTTE")
             self.session.add(event)
+        else:
+            event.Operator = "LOTTE"
 
         if gift_id:
             event.GiftID = str(gift_id)
@@ -114,12 +118,16 @@ class LotteCinemaCollector:
             .all()
         }
 
+        event = self.session.query(Event).filter_by(EventID=event_id).first()
+        event_name = event.EventName if event else "알 수 없는 이벤트"
+
         count = 0
         now = datetime.now()
         for item in items:
             c_id = str(item.get("CinemaID"))
             new_count = item.get("Cnt")
             existing = existing_records.get(c_id)
+            cinema_name = item.get("CinemaNameKR") or "알 수 없는 지점"
 
             # 조건: 기존 수량이 0이고 새로운 수량도 0이면 업데이트 건너뜀 (이미 소진된 지점)
             if existing and existing.ItemCount == 0 and new_count == 0:
@@ -131,18 +139,21 @@ class LotteCinemaCollector:
                     EventID=event_id,
                     GiftID=gift_id,
                     CinemaID=c_id,
-                    CinemaName=item.get("CinemaNameKR"),
+                    CinemaName=cinema_name,
                     DivisionName=item.get("DetailDivisionNameKR"),
                     ItemCount=new_count,
                     LastUpdated=now,
                 )
                 self.session.add(inv)
+                if new_count > 0:
+                    notifier.send_message(f"🆕 <b>신규 재고 발견!</b>\n{event_name}\n지점: {cinema_name}\n수량: {new_count}개")
+                
                 # 첫 기록은 이력에 저장
                 history = InventoryHistory(
                     EventID=event_id,
                     GiftID=gift_id,
                     CinemaID=c_id,
-                    CinemaName=item.get("CinemaNameKR"),
+                    CinemaName=cinema_name,
                     ItemCount=new_count,
                     RecordTime=now,
                 )
@@ -150,13 +161,19 @@ class LotteCinemaCollector:
             else:
                 # 수량이 변동된 경우에만 이력 추가 및 정보 업데이트
                 if existing.ItemCount != new_count:
+                    # 알림 로직
+                    if existing.ItemCount > 0 and new_count == 0:
+                        notifier.send_message(f"🚨 <b>품절 발생!</b>\n{event_name}\n지점: {cinema_name}")
+                    elif existing.ItemCount == 0 and new_count > 0:
+                        notifier.send_message(f"✅ <b>재입고 알림!</b>\n{event_name}\n지점: {cinema_name}\n수량: {new_count}개")
+                    
                     existing.ItemCount = new_count
                     existing.LastUpdated = now
                     history = InventoryHistory(
                         EventID=event_id,
                         GiftID=gift_id,
                         CinemaID=c_id,
-                        CinemaName=item.get("CinemaNameKR"),
+                        CinemaName=cinema_name,
                         ItemCount=new_count,
                         RecordTime=now,
                     )
@@ -186,9 +203,6 @@ class LotteCinemaCollector:
         return False
 
     def get_latest_event_id(self, year_yy=None):
-        """
-        특정 연도(YY) 또는 전체에서 2010100169로 시작하는 최신 EventID를 가져옵니다.
-        """
         prefix = f"2010100169{year_yy}" if year_yy else "2010100169"
         last_event = (
             self.session.query(Event.EventID)
@@ -208,21 +222,12 @@ class LotteCinemaCollector:
         return last_gift[0] if last_gift else None
 
     def get_gift_id_search_limit(self):
-        """
-        Returns the safe upper bound for GiftID scanning: max(GiftID in DB) + 50.
-        """
         latest_id = self.get_latest_gift_id()
         if latest_id and latest_id.isdigit():
             return int(latest_id) + 50
         return 14125  # Fallback default
 
     def discover_new_events(self):
-        """
-        Automatically discovers new events by:
-        1. Fetching the current event list from Lotte Cinema API.
-        2. Incrementing based on the specific EventID format: 2010100169 + YY + SEQ.
-        """
-        # --- Part 1: Process Current Event List ---
         logger.info("Auto-discovery Part 1: Fetching current events from Lotte Cinema API...")
         for page in [1, 2, 3]:
             try:
@@ -231,24 +236,18 @@ class LotteCinemaCollector:
                     for item in data["Items"]:
                         event_id = str(item.get("EventID"))
                         event = self.session.query(Event).filter_by(EventID=event_id).first()
-                        
-                        # Only process if new
                         if not event:
                             logger.info(f"Adding new event from list: {event_id} - {item.get('EventName')}")
                             self.save_event(item, gift_id=None)
             except Exception as e:
                 logger.error(f"Error processing event list on page {page}: {e}")
 
-        # --- Part 2: Incremental Discovery (Format-aware) ---
         now = datetime.now()
-        current_year_yy = now.strftime("%y")  # "26"
+        current_year_yy = now.strftime("%y")
         logger.info(f"Auto-discovery Part 2: Starting incremental scanning for year {current_year_yy}...")
 
-        # 현재 연도의 최신 ID 확인
         last_event_id = self.get_latest_event_id(current_year_yy)
-        
         if not last_event_id:
-            # 해당 연도의 데이터가 없으면 001번부터 시작 (예: 201010016926001)
             start_event_num = int(f"2010100169{current_year_yy}001")
             logger.info(f"No events found for year {current_year_yy}. Starting from {start_event_num}")
         else:
@@ -257,162 +256,70 @@ class LotteCinemaCollector:
         last_gift_id = self.get_latest_gift_id()
         if not last_gift_id:
             last_gift_id = "13870"
-            logger.info("No existing gift IDs found. Starting from default.")
-
+        
         start_gift_num = int(last_gift_id)
         gift_limit = self.get_gift_id_search_limit()
 
-        # Define search bounds
         max_events_to_check = 20
         max_gifts_to_check = 50
-
-        logger.info(
-            f"Incremental discovery started. Base Event: {start_event_num}, Base Gift: {start_gift_num}, Limit: {gift_limit}"
-        )
-
         current_gift_cursor = start_gift_num
         found_new = 0
 
         for i in range(max_events_to_check):
-            event_num = start_event_num + i
-            event_id = str(event_num)
-
-            try:
-                detail = self.fetch_event_detail(event_id)
-            except Exception:
-                continue
-
-            if not (
-                detail
-                and "InfomationDeliveryEventDetail" in detail
-                and detail["InfomationDeliveryEventDetail"]
-            ):
+            event_id = str(start_event_num + i)
+            detail = self.fetch_event_detail(event_id)
+            if not (detail and "InfomationDeliveryEventDetail" in detail and detail["InfomationDeliveryEventDetail"]):
                 continue
 
             event_info = detail["InfomationDeliveryEventDetail"][0]
             self.save_event(event_info, gift_id=None)
-            logger.info(
-                f"Discovered potential event via increment: {event_id} - {event_info.get('EventName')}"
-            )
 
-            matched = False
-            # Check a range of gifts starting from current cursor
             for j in range(max_gifts_to_check):
-                gift_num = current_gift_cursor + j
-                if gift_num > gift_limit:
-                    logger.info(f"  -> Gift ID limit ({gift_limit}) reached. Stopping gift scan for this event.")
-                    break
+                gift_id = str(current_gift_cursor + j)
+                if int(gift_id) > gift_limit: break
                 
-                gift_id = str(gift_num)
                 inv = self.fetch_inventory(event_id, gift_id)
                 if inv and inv.get("CinemaDivisionGoods"):
-                    logger.info(f"  -> MATCH: Gift {gift_id} for Event {event_id}")
                     self.save_event(event_info, gift_id=gift_id)
                     self.save_inventory(event_id, gift_id, inv)
-
-                    current_gift_cursor = gift_num
+                    notifier.send_message(f"🎯 <b>새로운 굿즈 번호 매칭!</b>\n{event_info.get('EventName')}\nEvent: {event_id}, Gift: {gift_id}")
+                    current_gift_cursor = int(gift_id)
                     found_new += 1
-                    matched = True
                     break
 
-        logger.info(f"Auto-discovery finished. Found {found_new} new items in Part 2.")
-
     def match_missing_gift_id(self, event_id):
-        """
-        Scans for a valid GiftID for the given event_id by checking ranges determined from neighboring events.
-        Range logic: Neighbors (EventID ± 30) -> Min GiftID to Max GiftID + 50.
-        Excludes already registered GiftIDs.
-        Delays 1~3s between requests.
-        """
-        # 1. Get all used GiftIDs (global exclusion list)
         used_gift_ids = set()
         results = self.session.query(Event.GiftID).filter(Event.GiftID != None).all()
         for r in results:
-            if r.GiftID and r.GiftID.isdigit():
-                used_gift_ids.add(int(r.GiftID))
+            if r.GiftID and r.GiftID.isdigit(): used_gift_ids.add(int(r.GiftID))
 
-        # 2. Determine search range from neighbors
         global_search_limit = self.get_gift_id_search_limit()
         try:
             target_event_num = int(event_id)
-            neighbor_min = target_event_num - 30
-            neighbor_max = target_event_num + 30
-
-            # Find neighbors with valid GiftIDs
-            neighbors = (
-                self.session.query(Event.GiftID)
-                .filter(
-                    Event.EventID >= str(neighbor_min),
-                    Event.EventID <= str(neighbor_max),
-                    Event.GiftID != None,
-                )
-                .all()
-            )
-
-            neighbor_gifts = []
-            for n in neighbors:
-                if n.GiftID and n.GiftID.isdigit():
-                    neighbor_gifts.append(int(n.GiftID))
+            neighbor_min, neighbor_max = target_event_num - 30, target_event_num + 30
+            neighbors = self.session.query(Event.GiftID).filter(Event.EventID >= str(neighbor_min), Event.EventID <= str(neighbor_max), Event.GiftID != None).all()
+            neighbor_gifts = [int(n.GiftID) for n in neighbors if n.GiftID and n.GiftID.isdigit()]
 
             if neighbor_gifts:
                 search_start = min(neighbor_gifts)
                 search_end = min(max(neighbor_gifts) + 50, global_search_limit)
-                logger.info(
-                    f"Search range determined from {len(neighbor_gifts)} neighbors: {search_start} ~ {search_end}"
-                )
             else:
-                # Fallback if no neighbors found
-                logger.warning(
-                    f"No neighbors found for Event {event_id}. Using global max fallback."
-                )
-                if not used_gift_ids:
-                    return False
+                if not used_gift_ids: return False
                 global_max = max(used_gift_ids)
-                search_start = max(1, global_max - 200)
-                search_end = global_search_limit
-        except ValueError:
-            logger.error(f"Invalid EventID format: {event_id}")
-            return False
+                search_start, search_end = max(1, global_max - 200), global_search_limit
+        except ValueError: return False
 
-        # 3. Generate candidates (excluding used ones)
-        candidates = []
-        for i in range(search_start, search_end + 1):
-            if i not in used_gift_ids:
-                candidates.append(str(i))
-
-        logger.info(
-            f"Scanning {len(candidates)} candidate GiftIDs for Event {event_id}..."
-        )
-
-        # 4. Iterate and check
+        candidates = [str(i) for i in range(search_start, search_end + 1) if i not in used_gift_ids]
         for gift_id in candidates:
-            # Random delay 1~3s
-            delay = random.uniform(1, 3)
-            time.sleep(delay)
-
+            time.sleep(random.uniform(1, 3))
             try:
                 inv = self.fetch_inventory(event_id, gift_id)
                 if inv and inv.get("CinemaDivisionGoods"):
-                    logger.info(
-                        f"MATCH FOUND! Event {event_id} mapped to GiftID {gift_id}"
-                    )
-
-                    # Update DB
                     detail = self.fetch_event_detail(event_id)
                     if detail and "InfomationDeliveryEventDetail" in detail:
-                        self.save_event(
-                            detail["InfomationDeliveryEventDetail"][0], gift_id=gift_id
-                        )
-
+                        self.save_event(detail["InfomationDeliveryEventDetail"][0], gift_id=gift_id)
                     self.save_inventory(event_id, gift_id, inv)
+                    notifier.send_message(f"🎯 <b>미할당 굿즈 번호 찾음!</b>\nEvent: {event_id} → Gift: {gift_id}")
                     return True
-            except Exception as e:
-                logger.error(f"Error checking gift {gift_id}: {e}")
-                continue
-
-        logger.info(f"No matching GiftID found for Event {event_id} after scanning.")
+            except Exception: continue
         return False
-
-    def process_events(self):
-        # (생략: 기존 탐색 로직 동일)
-        pass

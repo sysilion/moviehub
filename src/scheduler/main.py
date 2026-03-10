@@ -7,6 +7,9 @@ from sqlalchemy import func
 from apscheduler.schedulers.background import BackgroundScheduler
 from src.database.models import init_db, get_session, Inventory, Event
 from src.collectors.lotte import LotteCinemaCollector
+from src.collectors.megabox import MegaboxCollector
+from src.collectors.cgv import CGVCollector
+from src.collectors.cineq import CineQCollector
 from src.utils.logger import get_logger
 
 logger = get_logger("Scheduler")
@@ -20,6 +23,12 @@ class MovieHubScheduler:
             executors={'default': {'type': 'threadpool', 'max_workers': 5}}
         )
         self.running = False
+        self.collector_map = {
+            "LOTTE": LotteCinemaCollector,
+            "MEGABOX": MegaboxCollector,
+            "CGV": CGVCollector,
+            "CINEQ": CineQCollector
+        }
 
     def get_tracking_interval(self):
         """5분(300초)에서 10분(600초) 사이의 랜덤 초를 반환합니다."""
@@ -44,12 +53,8 @@ class MovieHubScheduler:
                 self.remove_job(event_id)
                 return
 
-            total_stock = session.query(func.sum(Inventory.ItemCount)).filter_by(EventID=event_id, GiftID=gift_id).scalar() or 0
-            if total_stock <= 0:
-                # 마지막 한 번 더 확인 시도 후 종료
-                logger.info(f"Event {event_id} stock potentially exhausted.")
-            
-            collector = LotteCinemaCollector(session)
+            collector_class = self.collector_map.get(event.Operator, LotteCinemaCollector)
+            collector = collector_class(session)
             collector.collect_target_inventory(event_id, gift_id)
             
         except Exception as e:
@@ -86,9 +91,13 @@ class MovieHubScheduler:
         logger.info("=== Main Discovery Job Started ===")
         session = get_session()
         try:
-            # 신규 이벤트/굿즈 자동 탐색 실행
-            collector = LotteCinemaCollector(session)
-            collector.discover_new_events()
+            # 모든 운영사 컬렉터 탐색 실행
+            for operator, collector_class in self.collector_map.items():
+                try:
+                    collector = collector_class(session)
+                    collector.discover_new_events()
+                except Exception as e:
+                    logger.error(f"Discovery failed for {operator}: {e}")
             
             now_str = datetime.now().strftime("%Y-%m-%d")
             active_targets = session.query(Inventory.EventID, Inventory.GiftID).distinct().join(

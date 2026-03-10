@@ -30,13 +30,43 @@ def get_db():
     try: yield db
     finally: db.close()
 
+from src.collectors.megabox import MegaboxCollector
+from src.collectors.cgv import CGVCollector
+from src.collectors.cineq import CineQCollector
+
+# ... (생략된 기존 코드)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    start_scheduler()
+    # Vercel(Serverless) 환경에서는 로컬 백그라운드 스케줄러를 시작하지 않습니다.
+    # 대신 Vercel Cron Jobs를 사용합니다.
+    if os.getenv("VERCEL") != "1":
+        start_scheduler()
     yield
-    stop_scheduler()
+    if os.getenv("VERCEL") != "1":
+        stop_scheduler()
 
 app = FastAPI(lifespan=lifespan)
+
+@app.get("/api/cron/discovery")
+async def cron_discovery(db: Session = Depends(get_db)):
+    """Vercel Cron용: 신규 이벤트 탐색 및 자동 등록"""
+    collectors = [
+        LotteCinemaCollector(db),
+        MegaboxCollector(db),
+        CGVCollector(db),
+        CineQCollector(db)
+    ]
+    results = {}
+    for col in collectors:
+        name = col.__class__.__name__
+        try:
+            found = col.discover_new_events()
+            results[name] = f"Found {found}"
+        except Exception as e:
+            results[name] = f"Error: {str(e)}"
+    
+    return {"status": "success", "results": results}
 
 # 굿즈 판별 키워드
 GOODS_KEYWORDS = ["증정", "뱃지", "아트카드", "artcard", "무비티켓", "키링", "시그니처"]
@@ -46,6 +76,7 @@ EXCLUDE_KEYWORDS = ["콤보", "런칭"]
 async def read_dashboard(
     request: Request, 
     q: str = None, 
+    operator: str = None, # 운영사 필터 (LOTTE, CGV, MEGABOX, CINEQ)
     show_ended: bool = False, 
     show_all: bool = False,
     page: int = 1,
@@ -53,6 +84,10 @@ async def read_dashboard(
     db: Session = Depends(get_db)
 ):
     query = db.query(Event)
+    
+    # 운영사 필터 적용
+    if operator:
+        query = query.filter(Event.Operator == operator)
     
     today_str = datetime.now().strftime("%Y-%m-%d")
     
@@ -107,16 +142,16 @@ async def read_dashboard(
         })
         
     return templates.TemplateResponse("index.html", {
-        "request": request, 
+        "request": request,
         "events": dashboard_data,
         "q": q,
+        "operator": operator,
         "show_ended": show_ended,
         "show_all": show_all,
         "page": page,
         "total_pages": total_pages,
         "total_count": total_count
     })
-
 @app.get("/event/{event_id}", response_class=HTMLResponse)
 async def read_event_detail(request: Request, event_id: str, db: Session = Depends(get_db)):
     event = db.query(Event).filter(Event.EventID == event_id).first()
