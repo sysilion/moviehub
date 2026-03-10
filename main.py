@@ -4,6 +4,7 @@ import signal
 import sys
 from dotenv import load_dotenv
 from src.utils.logger import get_logger
+from src.web.app import app # Vercel이 인식할 진입점
 
 load_dotenv()
 logger = get_logger("Main")
