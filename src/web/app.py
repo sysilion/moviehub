@@ -38,6 +38,10 @@ from src.collectors.cineq import CineQCollector
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # 앱 시작 시 DB 초기화 (테이블 생성)
+    from src.database.models import init_db
+    init_db()
+    
     # Vercel(Serverless) 환경에서는 로컬 백그라운드 스케줄러를 시작하지 않습니다.
     # 대신 Vercel Cron Jobs를 사용합니다.
     if os.getenv("VERCEL") != "1":

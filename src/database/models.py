@@ -64,7 +64,12 @@ def get_engine(db_url=None):
         return _engine
 
     if not db_url:
-        db_url = os.getenv('DATABASE_URL', 'sqlite:///moviehub.db')
+        db_url = os.getenv('DATABASE_URL')
+        if not db_url:
+            if os.getenv('VERCEL') == '1':
+                db_url = 'sqlite:////tmp/moviehub.db'
+            else:
+                db_url = 'sqlite:///moviehub.db'
     
     # SQLite의 경우 멀티스레드 환경(FastAPI + Scheduler)에서 check_same_thread=False 필요
     connect_args = {}
