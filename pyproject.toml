@@ -1,7 +1,18 @@
 [project]
 name = "moviehub"
 version = "0.1.0"
-description = "Add your description here"
+description = "Movie goods inventory tracker"
 readme = "README.md"
-requires-python = ">=3.14"
-dependencies = []
+requires-python = ">=3.12"
+dependencies = [
+    "sqlalchemy",
+    "requests",
+    "apscheduler",
+    "python-dotenv",
+    "fastapi",
+    "uvicorn[standard]",
+    "jinja2",
+    "python-multipart",
+    "psycopg2-binary",
+    "playwright"
+]
