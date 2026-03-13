@@ -1,16 +1,21 @@
 import math
+import os
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
+
 from fastapi import FastAPI, Request, Depends, BackgroundTasks
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
-from src.database.models import get_session, Event, Inventory, InventoryHistory
+
+from src.database.models import get_session, Event, Inventory, InventoryHistory, init_db
 from src.scheduler.main import start_scheduler, stop_scheduler, scheduler
 from src.collectors.lotte import LotteCinemaCollector
-from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
-import os
-
+from src.collectors.megabox import MegaboxCollector
+from src.collectors.cgv import CGVCollector
+from src.collectors.cineq import CineQCollector
+from src.services.event_service import EventService
 from src.utils.logger import get_logger
 
 logger = get_logger("WebApp")
@@ -34,16 +39,9 @@ def get_db():
     try: yield db
     finally: db.close()
 
-from src.collectors.megabox import MegaboxCollector
-from src.collectors.cgv import CGVCollector
-from src.collectors.cineq import CineQCollector
-
-# ... (생략된 기존 코드)
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 앱 시작 시 DB 초기화 (테이블 생성)
-    from src.database.models import init_db
     logger.info("Initializing database...")
     init_db()
     
@@ -79,8 +77,6 @@ async def cron_discovery(db: Session = Depends(get_db)):
     
     return {"status": "success", "results": results}
 
-from src.services.event_service import EventService
-
 @app.get("/", response_class=HTMLResponse)
 async def read_dashboard(
     request: Request, 
@@ -107,6 +103,7 @@ async def read_dashboard(
         "total_pages": total_pages,
         "total_count": total_count
     })
+
 @app.get("/event/{event_id}", response_class=HTMLResponse)
 async def read_event_detail(request: Request, event_id: str, db: Session = Depends(get_db)):
     event = db.query(Event).filter(Event.EventID == event_id).first()
@@ -192,7 +189,6 @@ async def get_stock_history(event_id: str, cinema_id: str, db: Session = Depends
     # 2. 현재 최신 상태 추가 (이력의 마지막보다 최신인 경우)
     current = db.query(Inventory).filter_by(EventID=event_id, CinemaID=cinema_id).first()
     if current:
-        current_time_str = current.LastUpdated.isoformat(timespec="seconds")
         # 마지막 이력과 시간이 다르거나 이력이 없는 경우 추가
         if not data or data[-1]["actual_time"] != current.LastUpdated.strftime("%m-%d %H:%M"):
             data.append(build_point(current.LastUpdated, current.ItemCount))

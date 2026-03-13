@@ -19,9 +19,11 @@ logger = get_logger("Scheduler")
 class MovieHubScheduler:
     def __init__(self):
         # DB 기반 JobStore 설정 (SQLite 또는 Postgres 연동)
-        jobstores = {
-            'default': SQLAlchemyJobStore(engine=get_engine())
-        }
+        # Vercel 환경(Serverless)에서는 스케줄러를 사용하지 않으므로 무거운 JobStore 설정을 건너뜁니다.
+        from src.utils.config import settings
+        jobstores = {}
+        if not settings.is_vercel:
+            jobstores['default'] = SQLAlchemyJobStore(engine=get_engine())
         
         # 데몬 스레드를 사용하도록 설정하여 프로세스 종료 시 함께 종료되도록 함
         self.scheduler = BackgroundScheduler(
