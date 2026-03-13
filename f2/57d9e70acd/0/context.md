@@ -1,0 +1,20 @@
+# Session Context
+
+## User Prompts
+
+### Prompt 1
+
+vercel 에서는 백그라운드 작업이 제한적이라 데이터 크롤링 하는 서버를 다른데서 수행하고 해당 데이터를 밀어넣는 형식으로 해야할거같은데 데이터 받아서 처리하는 엔드포인트랑 데이터 수집해서 릴레이 처리하는 코드 작성해줘
+
+### Prompt 2
+
+대상 서버 https://moviehub-cloud.vercel.app/ 여기로 정상동작하는지 테스트 진행해줘
+
+### Prompt 3
+
+moviehub.db 는 사용중인 디비
+
+### Prompt 4
+
+수정사항 커밋하고 푸시해줘
+

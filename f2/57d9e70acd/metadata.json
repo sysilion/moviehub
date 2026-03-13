@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.4.9",
+  "checkpoint_id": "f257d9e70acd",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "src/web/app.py",
+    "tools/relay_crawler.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/f2/57d9e70acd/0/metadata.json",
+      "transcript": "/f2/57d9e70acd/0/full.jsonl",
+      "context": "/f2/57d9e70acd/0/context.md",
+      "content_hash": "/f2/57d9e70acd/0/content_hash.txt",
+      "prompt": "/f2/57d9e70acd/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 1847709,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 1512466,
+    "output_tokens": 12387,
+    "api_call_count": 33
+  }
+}

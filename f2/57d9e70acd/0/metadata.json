@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.4.9",
+  "checkpoint_id": "f257d9e70acd",
+  "session_id": "2b06dd98-291b-4d96-b5f8-38f8a308c45c",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-13T17:35:13.161809Z",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "src/web/app.py",
+    "tools/relay_crawler.py"
+  ],
+  "agent": "Gemini CLI",
+  "turn_id": "c8db1c4944a9",
+  "checkpoint_transcript_start": 1,
+  "transcript_lines_at_start": 1,
+  "token_usage": {
+    "input_tokens": 1847709,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 1512466,
+    "output_tokens": 12387,
+    "api_call_count": 33
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-13T17:35:13.041042Z",
+    "agent_lines": 329,
+    "human_added": 33,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 362,
+    "agent_percentage": 90.88397790055248
+  }
+}
