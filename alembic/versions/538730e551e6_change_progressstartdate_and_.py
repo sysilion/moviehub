@@ -25,11 +25,13 @@ def upgrade() -> None:
         batch_op.alter_column('ProgressStartDate',
                existing_type=sa.VARCHAR(),
                type_=sa.Date(),
-               existing_nullable=True)
+               existing_nullable=True,
+               postgresql_using='NULLIF("ProgressStartDate", \'\')::date')
         batch_op.alter_column('ProgressEndDate',
                existing_type=sa.VARCHAR(),
                type_=sa.Date(),
-               existing_nullable=True)
+               existing_nullable=True,
+               postgresql_using='NULLIF("ProgressEndDate", \'\')::date')
 
     # ### end Alembic commands ###
 
