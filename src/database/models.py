@@ -90,3 +90,18 @@ def init_db(engine=None):
     if not engine:
         engine = get_engine()
     Base.metadata.create_all(engine)
+
+def run_migrations():
+    """Alembic 마이그레이션을 프로그램 방식으로 실행합니다."""
+    from alembic.config import Config
+    from alembic import command
+    import os
+    
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    ini_path = os.path.join(base_dir, "alembic.ini")
+    
+    if os.path.exists(ini_path):
+        alembic_cfg = Config(ini_path)
+        # 런타임에 DB URL 명시적 설정
+        alembic_cfg.set_main_option("sqlalchemy.url", str(get_engine().url).replace('%', '%%'))
+        command.upgrade(alembic_cfg, "head")

@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 
-from src.database.models import get_session, Event, Inventory, InventoryHistory, init_db
+from src.database.models import get_session, Event, Inventory, InventoryHistory, init_db, run_migrations
 from src.scheduler.main import start_scheduler, stop_scheduler, scheduler
 from src.collectors.lotte import LotteCinemaCollector
 from src.collectors.megabox import MegaboxCollector
@@ -41,9 +41,15 @@ def get_db():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 앱 시작 시 DB 초기화 (테이블 생성)
+    # 앱 시작 시 DB 초기화 (테이블 생성 및 마이그레이션)
     logger.info("Initializing database...")
     init_db()
+    
+    try:
+        logger.info("Running database migrations...")
+        run_migrations()
+    except Exception as e:
+        logger.error(f"Migration failed: {e}")
     
     # Vercel(Serverless) 환경에서는 로컬 백그라운드 스케줄러를 시작하지 않습니다.
     # 대신 Vercel Cron Jobs를 사용합니다.
