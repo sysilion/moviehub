@@ -155,13 +155,13 @@ class CGVCollector(BaseCollector):
                     existing.ItemCount = new_count
                     existing.LastUpdated = now
             
-            # 이력 저장
             self.session.add(InventoryHistory(
                 EventID=event_id, GiftID=gift_id, CinemaID=c_id,
                 CinemaName=cinema_name, ItemCount=new_count, RecordTime=now
             ))
 
         self.session.commit()
+        logger.info(f"Updated active inventory items for CGV : {event_name} ({event_id})")
 
     def collect_target_inventory(self, event_id: str, gift_id: str):
         inv_data = self.fetch_inventory(event_id, gift_id)

@@ -41,15 +41,22 @@ class MovieHubScheduler:
 
     def update_event_inventory(self, event_id, gift_id):
         """특정 이벤트의 재고를 업데이트하는 작업 단위"""
-        logger.info(f"--- [Job] Updating Event {event_id} (Gift {gift_id}) ---")
         session = get_session()
         try:
             # 기간 및 소진 여부 재확인
             now_str = datetime.now().strftime("%Y-%m-%d")
             event = session.query(Event).filter_by(EventID=event_id).first()
             
-            if not event or event.ProgressEndDate < now_str:
-                logger.info(f"Event {event_id} has ended. Removing job.")
+            if not event:
+                logger.info(f"Event {event_id} not found. Removing job.")
+                self.remove_job(event_id)
+                return
+
+            event_label = f"{event.Operator} : {event.EventName} ({event_id})"
+            logger.info(f"--- [Job] Updating {event_label} (Gift {gift_id}) ---")
+
+            if event.ProgressEndDate < now_str:
+                logger.info(f"Event {event_label} has ended. Removing job.")
                 self.remove_job(event_id)
                 return
 
@@ -70,6 +77,12 @@ class MovieHubScheduler:
         interval_seconds = self.get_tracking_interval()
         run_time = datetime.now() + timedelta(seconds=interval_seconds)
         
+        # 로그를 위한 이벤트 정보 조회
+        session = get_session()
+        event = session.query(Event).filter_by(EventID=event_id).first()
+        event_label = f"{event.Operator} : {event.EventName} ({event_id})" if event else event_id
+        session.close()
+
         job_id = f"job_{event_id}"
         self.scheduler.add_job(
             self.update_event_inventory,
@@ -79,7 +92,7 @@ class MovieHubScheduler:
             id=job_id,
             replace_existing=True
         )
-        logger.info(f"Scheduled next update for Event {event_id} at {run_time.strftime('%H:%M:%S')} (in {interval_seconds}s)")
+        logger.info(f"Scheduled next update for {event_label} at {run_time.strftime('%H:%M:%S')} (in {interval_seconds}s)")
 
     def remove_job(self, event_id):
         job_id = f"job_{event_id}"
@@ -111,7 +124,9 @@ class MovieHubScheduler:
                 if not self.scheduler.get_job(job_id):
                     total_stock = session.query(func.sum(Inventory.ItemCount)).filter_by(EventID=event_id, GiftID=gift_id).scalar() or 0
                     if total_stock > 0:
-                        logger.info(f"Registering new tracking job for Event {event_id}")
+                        event = session.query(Event).filter_by(EventID=event_id).first()
+                        event_label = f"{event.Operator} : {event.EventName} ({event_id})" if event else event_id
+                        logger.info(f"Registering new tracking job for {event_label}")
                         self.schedule_single_event(event_id, gift_id)
                         
         except Exception as e:

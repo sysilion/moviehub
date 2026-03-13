@@ -185,7 +185,7 @@ class LotteCinemaCollector(BaseCollector):
             count += 1
 
         self.session.commit()
-        logger.info(f"Updated {count} active inventory items for Event {event_id}")
+        logger.info(f"Updated {count} active inventory items for LOTTE : {event_name} ({event_id})")
 
     def collect_target_inventory(self, event_id, gift_id):
         detail = self.fetch_event_detail(event_id)
