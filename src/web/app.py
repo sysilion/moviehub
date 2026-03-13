@@ -11,6 +11,10 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 import os
 
+from src.utils.logger import get_logger
+
+logger = get_logger("WebApp")
+
 # 템플릿 설정
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
@@ -40,14 +44,17 @@ from src.collectors.cineq import CineQCollector
 async def lifespan(app: FastAPI):
     # 앱 시작 시 DB 초기화 (테이블 생성)
     from src.database.models import init_db
+    logger.info("Initializing database...")
     init_db()
     
     # Vercel(Serverless) 환경에서는 로컬 백그라운드 스케줄러를 시작하지 않습니다.
     # 대신 Vercel Cron Jobs를 사용합니다.
     if os.getenv("VERCEL") != "1":
+        logger.info("Starting background scheduler...")
         start_scheduler()
     yield
     if os.getenv("VERCEL") != "1":
+        logger.info("Stopping background scheduler...")
         stop_scheduler()
 
 app = FastAPI(lifespan=lifespan)
