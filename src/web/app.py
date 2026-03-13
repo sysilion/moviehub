@@ -66,6 +66,7 @@ app = FastAPI(lifespan=lifespan)
 @app.get("/api/cron/discovery")
 async def cron_discovery(db: Session = Depends(get_db)):
     """Vercel Cron용: 신규 이벤트 탐색 및 자동 등록"""
+    logger.info("=== Vercel Cron Discovery Job Started ===")
     collectors = [
         LotteCinemaCollector(db),
         MegaboxCollector(db),
@@ -76,11 +77,15 @@ async def cron_discovery(db: Session = Depends(get_db)):
     for col in collectors:
         name = col.__class__.__name__
         try:
+            logger.info(f"Running discovery for {name}...")
             found = col.discover_new_events()
             results[name] = f"Found {found}"
+            logger.info(f"Finished {name}: {results[name]}")
         except Exception as e:
             results[name] = f"Error: {str(e)}"
+            logger.error(f"Failed discovery for {name}: {e}")
     
+    logger.info("=== Vercel Cron Discovery Job Finished ===")
     return {"status": "success", "results": results}
 
 @app.get("/", response_class=HTMLResponse)
