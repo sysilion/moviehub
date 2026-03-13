@@ -3,11 +3,13 @@ import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 
-from fastapi import FastAPI, Request, Depends, BackgroundTasks
+from fastapi import FastAPI, Request, Depends, BackgroundTasks, HTTPException, Header
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
+from pydantic import BaseModel
+from typing import List, Optional
 
 from src.database.models import get_session, Event, Inventory, InventoryHistory, init_db, run_migrations
 from src.scheduler.main import start_scheduler, stop_scheduler, scheduler
@@ -19,6 +21,41 @@ from src.services.event_service import EventService
 from src.utils.logger import get_logger
 
 logger = get_logger("WebApp")
+
+# API Key 설정 (환경변수 권장)
+API_KEY = os.getenv("RELAY_API_KEY", "moviehub-relay-secret-key")
+
+def verify_api_key(x_api_key: str = Header(...)):
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=403, detail="Invalid API Key")
+
+# Pydantic Models for Sync
+class EventUpload(BaseModel):
+    EventID: str
+    Operator: str
+    EventName: str
+    GiftID: Optional[str] = None
+    EventClassificationCode: Optional[str] = None
+    EventTypeCode: Optional[str] = None
+    EventTypeName: Optional[str] = None
+    ProgressStartDate: Optional[str] = None # YYYY-MM-DD
+    ProgressEndDate: Optional[str] = None   # YYYY-MM-DD
+    ImageUrl: Optional[str] = None
+    DetailImageUrl: Optional[str] = None
+
+class InventoryUpload(BaseModel):
+    EventID: str
+    GiftID: str
+    CinemaID: str
+    CinemaName: str
+    DivisionCode: Optional[str] = None
+    DetailDivisionCode: Optional[str] = None
+    DivisionName: Optional[str] = None
+    ItemCount: int
+
+class BatchUploadRequest(BaseModel):
+    events: List[EventUpload] = []
+    inventory: List[InventoryUpload] = []
 
 # 템플릿 설정
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -106,6 +143,114 @@ async def cron_discovery(db: Session = Depends(get_db)):
 
     logger.info("=== Vercel Cron Job Finished ===")
     return {"status": "success", "results": results}
+
+@app.post("/api/sync/upload")
+async def upload_sync_data(
+    data: BatchUploadRequest, 
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    _: str = Depends(verify_api_key)
+):
+    """크롤링 서버로부터 데이터를 수신하여 DB에 동기화합니다."""
+    
+    # 1. 이벤트 동기화 (Upsert)
+    synced_events = 0
+    for e_data in data.events:
+        try:
+            event = db.query(Event).filter_by(EventID=e_data.EventID).first()
+            if not event:
+                event = Event(EventID=e_data.EventID)
+                db.add(event)
+            
+            # 필드 업데이트
+            event.Operator = e_data.Operator
+            event.EventName = e_data.EventName
+            event.GiftID = e_data.GiftID
+            event.EventClassificationCode = e_data.EventClassificationCode
+            event.EventTypeCode = e_data.EventTypeCode
+            event.EventTypeName = e_data.EventTypeName
+            event.ImageUrl = e_data.ImageUrl
+            event.DetailImageUrl = e_data.DetailImageUrl
+            
+            # 날짜 파싱 (YYYY-MM-DD)
+            def parse_date(d_str):
+                if not d_str: return None
+                try: return datetime.strptime(d_str, "%Y-%m-%d").date()
+                except: return None
+
+            event.ProgressStartDate = parse_date(e_data.ProgressStartDate)
+            event.ProgressEndDate = parse_date(e_data.ProgressEndDate)
+            
+            synced_events += 1
+        except Exception as e:
+            logger.error(f"Event sync failed for {e_data.EventID}: {e}")
+    
+    # 2. 인벤토리 동기화 및 히스토리 기록
+    synced_inv = 0
+    now = datetime.now()
+    
+    for i_data in data.inventory:
+        try:
+            # 해당 이벤트가 존재하는지 확인 (FK 제약)
+            # 만약 이벤트가 이번 배치에 포함되어 있지 않고 DB에도 없다면 스킵
+            # (보통 events 리스트가 먼저 처리되므로 괜찮음)
+            
+            inv = db.query(Inventory).filter_by(
+                EventID=i_data.EventID, 
+                GiftID=i_data.GiftID, 
+                CinemaID=i_data.CinemaID
+            ).first()
+            
+            should_add_history = False
+            
+            if not inv:
+                inv = Inventory(
+                    EventID=i_data.EventID,
+                    GiftID=i_data.GiftID,
+                    CinemaID=i_data.CinemaID,
+                    CinemaName=i_data.CinemaName,
+                    DivisionCode=i_data.DivisionCode,
+                    DetailDivisionCode=i_data.DetailDivisionCode,
+                    DivisionName=i_data.DivisionName,
+                    ItemCount=i_data.ItemCount,
+                    LastUpdated=now
+                )
+                db.add(inv)
+                should_add_history = True
+            else:
+                # 수량이 변경되었거나 업데이트 시간이 많이 지났을 경우
+                if inv.ItemCount != i_data.ItemCount:
+                    inv.ItemCount = i_data.ItemCount
+                    inv.LastUpdated = now
+                    should_add_history = True
+                else:
+                    # 수량 변경은 없지만 업데이트 시간 갱신
+                    inv.LastUpdated = now
+
+            if should_add_history:
+                history = InventoryHistory(
+                    EventID=i_data.EventID,
+                    GiftID=i_data.GiftID,
+                    CinemaID=i_data.CinemaID,
+                    CinemaName=i_data.CinemaName,
+                    ItemCount=i_data.ItemCount,
+                    RecordTime=now
+                )
+                db.add(history)
+            
+            synced_inv += 1
+        except Exception as e:
+            logger.error(f"Inventory sync failed for {i_data.EventID}/{i_data.CinemaID}: {e}")
+
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Commit failed: {e}")
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+    logger.info(f"Sync complete. Events: {synced_events}, Inventory: {synced_inv}")
+    return {"status": "success", "events_processed": synced_events, "inventory_processed": synced_inv}
 
 @app.get("/", response_class=HTMLResponse)
 async def read_dashboard(
