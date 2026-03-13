@@ -1,0 +1,8 @@
+# Session Context
+
+## User Prompts
+
+### Prompt 1
+
+현재 실행환경이 vercel 이 아니라면 로컬에서 스케쥴러를 실행해서 이벤트및 굿즈를 자동 모니터링 하도록 해줘
+
