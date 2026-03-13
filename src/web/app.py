@@ -54,8 +54,10 @@ async def lifespan(app: FastAPI):
     # Vercel(Serverless) 환경에서는 로컬 백그라운드 스케줄러를 시작하지 않습니다.
     # 대신 Vercel Cron Jobs를 사용합니다.
     if os.getenv("VERCEL") != "1":
-        logger.info("Starting background scheduler...")
+        logger.info("Starting local background scheduler...")
         start_scheduler()
+    else:
+        logger.info("Vercel environment detected. Local scheduler disabled (using Vercel Cron).")
     yield
     if os.getenv("VERCEL") != "1":
         logger.info("Stopping background scheduler...")
@@ -65,27 +67,44 @@ app = FastAPI(lifespan=lifespan)
 
 @app.get("/api/cron/discovery")
 async def cron_discovery(db: Session = Depends(get_db)):
-    """Vercel Cron용: 신규 이벤트 탐색 및 자동 등록"""
-    logger.info("=== Vercel Cron Discovery Job Started ===")
-    collectors = [
-        LotteCinemaCollector(db),
-        MegaboxCollector(db),
-        CGVCollector(db),
-        CineQCollector(db)
-    ]
-    results = {}
-    for col in collectors:
-        name = col.__class__.__name__
-        try:
-            logger.info(f"Running discovery for {name}...")
-            found = col.discover_new_events()
-            results[name] = f"Found {found}"
-            logger.info(f"Finished {name}: {results[name]}")
-        except Exception as e:
-            results[name] = f"Error: {str(e)}"
-            logger.error(f"Failed discovery for {name}: {e}")
+    """Vercel Cron용: 신규 이벤트 탐색 및 진행 중인 이벤트 재고 업데이트"""
+    logger.info("=== Vercel Cron Job Started ===")
+    collectors = {
+        "LOTTE": LotteCinemaCollector(db),
+        "MEGABOX": MegaboxCollector(db),
+        "CGV": CGVCollector(db),
+        "CINEQ": CineQCollector(db)
+    }
     
-    logger.info("=== Vercel Cron Discovery Job Finished ===")
+    results = {"discovery": {}, "updates": []}
+    
+    # 1. 신규 이벤트 탐색
+    for name, col in collectors.items():
+        try:
+            found = col.discover_new_events()
+            results["discovery"][name] = f"Found {found}"
+            logger.info(f"[Discovery] {name}: {found} new events")
+        except Exception as e:
+            logger.error(f"[Discovery] {name} failed: {e}")
+
+    # 2. 진행 중인 이벤트 재고 업데이트 (최대 10개씩 - 타임아웃 방지)
+    today = datetime.now().date()
+    active_events = db.query(Event).filter(
+        Event.GiftID != None,
+        or_(Event.ProgressEndDate >= today, Event.ProgressEndDate == None)
+    ).order_by(func.random()).limit(10).all()
+
+    for event in active_events:
+        col = collectors.get(event.Operator)
+        if col:
+            try:
+                col.collect_target_inventory(event.EventID, event.GiftID)
+                results["updates"].append(f"{event.Operator}: {event.EventID} updated")
+                logger.info(f"[Update] {event.Operator}: {event.EventName} ({event.EventID})")
+            except Exception as e:
+                logger.error(f"[Update] {event.EventID} failed: {e}")
+
+    logger.info("=== Vercel Cron Job Finished ===")
     return {"status": "success", "results": results}
 
 @app.get("/", response_class=HTMLResponse)
