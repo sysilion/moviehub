@@ -2,7 +2,7 @@ name: MovieHub Goods Cron
 
 on:
   schedule:
-    - cron: '*/30 * * * *'  # 30분마다 실행
+    - cron: '*/15 * * * *'  # 15분마다 실행 (00, 15, 30, 45분)
   workflow_dispatch:      # 수동 실행 허용
 
 jobs:
