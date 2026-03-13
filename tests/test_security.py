@@ -1,5 +1,6 @@
 import pytest
 from src.database.models import Event
+from datetime import date
 
 def test_event_detail_not_found(client):
     response = client.get("/event/NON_EXISTENT_ID")
@@ -11,8 +12,8 @@ def test_event_detail_found(client, session):
         EventID="EXISTING_ID",
         Operator="LOTTE",
         EventName="Test Event",
-        ProgressStartDate="2026-03-01",
-        ProgressEndDate="2026-03-31"
+        ProgressStartDate=date(2026, 3, 1),
+        ProgressEndDate=date(2026, 3, 31)
     )
     session.add(event)
     session.commit()

@@ -3,9 +3,11 @@ import random
 import signal
 import sys
 from datetime import datetime, timedelta
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from apscheduler.schedulers.background import BackgroundScheduler
-from src.database.models import init_db, get_session, Inventory, Event
+from apscheduler.events import EVENT_JOB_ERROR
+from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+from src.database.models import init_db, get_session, Inventory, Event, get_engine
 from src.collectors.lotte import LotteCinemaCollector
 from src.collectors.megabox import MegaboxCollector
 from src.collectors.cgv import CGVCollector
@@ -16,9 +18,15 @@ logger = get_logger("Scheduler")
 
 class MovieHubScheduler:
     def __init__(self):
+        # DB 기반 JobStore 설정 (SQLite 또는 Postgres 연동)
+        jobstores = {
+            'default': SQLAlchemyJobStore(engine=get_engine())
+        }
+        
         # 데몬 스레드를 사용하도록 설정하여 프로세스 종료 시 함께 종료되도록 함
         self.scheduler = BackgroundScheduler(
-            job_defaults={'misfire_grace_time': 30, 'coalesce': True},
+            jobstores=jobstores,
+            job_defaults={'misfire_grace_time': 60, 'coalesce': True},
             # job을 관리하는 스레드 풀을 데몬으로 설정
             executors={'default': {'type': 'threadpool', 'max_workers': 5}}
         )
@@ -29,6 +37,10 @@ class MovieHubScheduler:
             "CGV": CGVCollector,
             "CINEQ": CineQCollector
         }
+        
+    def _job_listener(self, event):
+        if event.exception:
+            logger.error(f"Job {event.job_id} failed: {event.exception}")
 
     def get_tracking_interval(self):
         """5분(300초)에서 10분(600초) 사이의 랜덤 초를 반환합니다."""
@@ -44,7 +56,7 @@ class MovieHubScheduler:
         session = get_session()
         try:
             # 기간 및 소진 여부 재확인
-            now_str = datetime.now().strftime("%Y-%m-%d")
+            today = datetime.now().date()
             event = session.query(Event).filter_by(EventID=event_id).first()
             
             if not event:
@@ -55,7 +67,7 @@ class MovieHubScheduler:
             event_label = f"{event.Operator} : {event.EventName} ({event_id})"
             logger.info(f"--- [Job] Updating {event_label} (Gift {gift_id}) ---")
 
-            if event.ProgressEndDate < now_str:
+            if event.ProgressEndDate and event.ProgressEndDate < today:
                 logger.info(f"Event {event_label} has ended. Removing job.")
                 self.remove_job(event_id)
                 return
@@ -112,11 +124,11 @@ class MovieHubScheduler:
                 except Exception as e:
                     logger.error(f"Discovery failed for {operator}: {e}")
             
-            now_str = datetime.now().strftime("%Y-%m-%d")
+            today = datetime.now().date()
             active_targets = session.query(Inventory.EventID, Inventory.GiftID).distinct().join(
                 Event, Event.EventID == Inventory.EventID
             ).filter(
-                Event.ProgressEndDate >= now_str
+                or_(Event.ProgressEndDate >= today, Event.ProgressEndDate == None)
             ).all()
 
             for event_id, gift_id in active_targets:
@@ -157,11 +169,14 @@ class MovieHubScheduler:
         init_db()
         self.running = True
         
+        # 리스너 등록 (에러 로그 수집)
+        self.scheduler.add_listener(self._job_listener, EVENT_JOB_ERROR)
+        
         # 즉시 한 번 실행하여 탐색 루프 시작
         self.main_discovery_job()
         
         self.scheduler.start()
-        logger.info("Background scheduler with per-event jobs started.")
+        logger.info("Background scheduler with persistent job store started.")
 
     def stop(self):
         if self.running:

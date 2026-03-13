@@ -101,15 +101,22 @@ class CGVCollector(BaseCollector):
         if gift_id:
             event.GiftID = gift_id
             
-        # 이미지 및 날짜 처리
+        # 이미지 처리
         img = event_data.get("evtImgPath")
         if img:
             event.ImageUrl = f"https://img.cgv.co.kr{img}" if img.startswith("/") else img
             
-        start = event_data.get("evntStartYmd") or event_data.get("evntStartDt")
-        end = event_data.get("evntEndYmd") or event_data.get("evntEndDt")
-        if start: event.ProgressStartDate = start.replace(".", "-")
-        if end: event.ProgressEndDate = end.replace(".", "-")
+        def parse_date(date_str):
+            if not date_str: return None
+            # "2025.01.01" 또는 "2025-01-01" 형식 대응
+            clean_date = date_str.replace(".", "-")[:10]
+            try:
+                return datetime.strptime(clean_date, "%Y-%m-%d").date()
+            except (ValueError, TypeError):
+                return None
+
+        event.ProgressStartDate = parse_date(event_data.get("evntStartYmd") or event_data.get("evntStartDt"))
+        event.ProgressEndDate = parse_date(event_data.get("evntEndYmd") or event_data.get("evntEndDt"))
         
         self.session.commit()
         return event

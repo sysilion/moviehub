@@ -93,13 +93,18 @@ class LotteCinemaCollector(BaseCollector):
 
         if gift_id:
             event.GiftID = str(gift_id)
+        
+        def parse_date(date_str):
+            if not date_str: return None
+            try:
+                # "2025-01-01" 형식을 처리
+                return datetime.strptime(date_str[:10], "%Y-%m-%d").date()
+            except (ValueError, TypeError):
+                return None
+
         event.EventName = event_data.get("EventName")
-        event.ProgressStartDate = event_data.get("ProgressStartDate") or event_data.get(
-            "EventStartDate"
-        )
-        event.ProgressEndDate = event_data.get("ProgressEndDate") or event_data.get(
-            "EventEndDate"
-        )
+        event.ProgressStartDate = parse_date(event_data.get("ProgressStartDate") or event_data.get("EventStartDate"))
+        event.ProgressEndDate = parse_date(event_data.get("ProgressEndDate") or event_data.get("EventEndDate"))
         event.ImageUrl = event_data.get("ListImgUrl") or event.ImageUrl
         event.DetailImageUrl = event_data.get("ImgUrl") or event.DetailImageUrl
         self.session.commit()

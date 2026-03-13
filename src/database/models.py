@@ -1,11 +1,8 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, create_engine
+from sqlalchemy import Column, Integer, String, DateTime, Date, Text, ForeignKey, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
-import os
 from datetime import datetime
-from dotenv import load_dotenv
-
-load_dotenv()
+from src.utils.config import settings
 
 Base = declarative_base()
 
@@ -19,8 +16,8 @@ class Event(Base):
     EventClassificationCode = Column(String, nullable=True)
     EventTypeCode = Column(String, nullable=True)
     EventTypeName = Column(String, nullable=True)
-    ProgressStartDate = Column(String, nullable=True)
-    ProgressEndDate = Column(String, nullable=True)
+    ProgressStartDate = Column(Date, nullable=True)
+    ProgressEndDate = Column(Date, nullable=True)
     ImageUrl = Column(String, nullable=True)
     DetailImageUrl = Column(String, nullable=True)
     RawData = Column(Text, nullable=True)
@@ -64,12 +61,7 @@ def get_engine(db_url=None):
         return _engine
 
     if not db_url:
-        db_url = os.getenv('DATABASE_URL')
-        if not db_url:
-            if os.getenv('VERCEL') == '1':
-                db_url = 'sqlite:////tmp/moviehub.db'
-            else:
-                db_url = 'sqlite:///moviehub.db'
+        db_url = settings.final_db_url
     
     # SQLite의 경우 멀티스레드 환경(FastAPI + Scheduler)에서 check_same_thread=False 필요
     connect_args = {}

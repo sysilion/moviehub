@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 from src.database.models import Event
-from datetime import datetime
+from datetime import datetime, date
 
 def test_read_dashboard_empty(client):
     response = client.get("/")
@@ -19,8 +19,8 @@ def test_read_dashboard_with_data(client, session):
         Operator="LOTTE",
         EventName="Test 아트카드 증정 이벤트",
         GiftID="12345",
-        ProgressStartDate="2026-03-01",
-        ProgressEndDate="2026-03-31"
+        ProgressStartDate=date(2026, 3, 1),
+        ProgressEndDate=date(2026, 3, 31)
     )
     session.add(event)
     session.commit()

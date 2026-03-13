@@ -58,10 +58,19 @@ class MegaboxCollector(BaseCollector):
         else:
             event.Operator = "MEGABOX"
         
+        def parse_date(date_str):
+            if not date_str: return None
+            # "2025.01.01" 또는 "2025-01-01" 형식 대응
+            clean_date = date_str.replace(".", "-")[:10]
+            try:
+                return datetime.strptime(clean_date, "%Y-%m-%d").date()
+            except (ValueError, TypeError):
+                return None
+
         event.EventName = event_data.get("EventName")
         event.ImageUrl = event_data.get("ImageUrl")
-        event.ProgressStartDate = event_data.get("StartDate")
-        event.ProgressEndDate = event_data.get("EndDate")
+        event.ProgressStartDate = parse_date(event_data.get("StartDate"))
+        event.ProgressEndDate = parse_date(event_data.get("EndDate"))
         
         self.session.commit()
         return event

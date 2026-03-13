@@ -79,9 +79,7 @@ async def cron_discovery(db: Session = Depends(get_db)):
     
     return {"status": "success", "results": results}
 
-# 굿즈 판별 키워드
-GOODS_KEYWORDS = ["증정", "뱃지", "아트카드", "artcard", "무비티켓", "키링", "시그니처"]
-EXCLUDE_KEYWORDS = ["콤보", "런칭"]
+from src.services.event_service import EventService
 
 @app.get("/", response_class=HTMLResponse)
 async def read_dashboard(
@@ -94,64 +92,10 @@ async def read_dashboard(
     limit: int = 30,
     db: Session = Depends(get_db)
 ):
-    query = db.query(Event)
+    dashboard_data, total_pages, total_count = EventService.get_dashboard_events(
+        db, q, operator, show_ended, show_all, page, limit
+    )
     
-    # 운영사 필터 적용
-    if operator:
-        query = query.filter(Event.Operator == operator)
-    
-    today_str = datetime.now().strftime("%Y-%m-%d")
-    
-    # 기본적으로 굿즈 관련 이벤트만 노출 (show_all이 False일 때 필터 적용)
-    if not show_all:
-        goods_filters = [Event.GiftID != None]
-        for kw in GOODS_KEYWORDS:
-            goods_filters.append(Event.EventName.ilike(f"%{kw}%"))
-        
-        # 합집합(확정 OR 예상 키워드) 적용
-        query = query.filter(or_(*goods_filters))
-        
-        # 제외 키워드 적용 (NOT LIKE)
-        for ex_kw in EXCLUDE_KEYWORDS:
-            query = query.filter(Event.EventName.not_ilike(f"%{ex_kw}%"))
-
-    # 검색어가 있으면 날짜 필터 무시하고 검색 결과 전체 반환
-    if q:
-        query = query.filter(Event.EventName.ilike(f"%{q}%"))
-    else:
-        # 검색어가 없을 때만 종료된 이벤트 필터링 적용
-        if not show_ended:
-            query = query.filter(or_(Event.ProgressEndDate >= today_str, Event.ProgressEndDate == None))
-
-    # 전체 개수 계산 (페이지네이션 전)
-    total_count = query.count()
-    total_pages = math.ceil(total_count / limit)
-    
-    # 페이지네이션 적용
-    offset = (page - 1) * limit
-    events = query.order_by(Event.ProgressStartDate.desc()).offset(offset).limit(limit).all()
-    
-    dashboard_data = []
-    for event in events:
-        total_stock = db.query(func.sum(Inventory.ItemCount)).filter(Inventory.EventID == event.EventID).scalar() or 0
-        last_updated = db.query(func.max(Inventory.LastUpdated)).filter(Inventory.EventID == event.EventID).scalar()
-        
-        # 굿즈 예상 여부 판별 (제외 키워드 포함)
-        is_potential = False
-        event_name_lower = event.EventName.lower()
-        if not event.GiftID:
-            has_good_kw = any(kw.lower() in event_name_lower for kw in GOODS_KEYWORDS)
-            has_exclude_kw = any(ex_kw.lower() in event_name_lower for ex_kw in EXCLUDE_KEYWORDS)
-            is_potential = has_good_kw and not has_exclude_kw
-
-        dashboard_data.append({
-            "event": event,
-            "total_stock": total_stock,
-            "gift_id": event.GiftID,
-            "last_updated": last_updated,
-            "is_potential": is_potential
-        })
-        
     return templates.TemplateResponse("index.html", {
         "request": request,
         "events": dashboard_data,
@@ -166,6 +110,8 @@ async def read_dashboard(
 @app.get("/event/{event_id}", response_class=HTMLResponse)
 async def read_event_detail(request: Request, event_id: str, db: Session = Depends(get_db)):
     event = db.query(Event).filter(Event.EventID == event_id).first()
+    if not event:
+        return HTMLResponse("이벤트를 찾을 수 없습니다.", status_code=404)
     inventory = db.query(Inventory).filter(Inventory.EventID == event_id).order_by(Inventory.DivisionCode, Inventory.CinemaName).all()
     total_stock = sum(item.ItemCount for item in inventory)
     return templates.TemplateResponse("detail.html", {
@@ -176,7 +122,9 @@ async def read_event_detail(request: Request, event_id: str, db: Session = Depen
 async def trigger_update(event_id: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """즉시 수량 갱신 요청"""
     event = db.query(Event).filter_by(EventID=event_id).first()
-    if not event or not event.GiftID: 
+    if not event:
+        return JSONResponse({"status": "error", "message": "Event not found."}, status_code=404)
+    if not event.GiftID: 
         return JSONResponse({"status": "error", "message": "No GiftID found for this event. Please find GiftID first."}, status_code=400)
     
     gift_id = event.GiftID
@@ -220,10 +168,8 @@ async def get_stock_history(event_id: str, cinema_id: str, db: Session = Depends
     event = db.query(Event).filter(Event.EventID == event_id).first()
     start_dt = None
     if event and event.ProgressStartDate:
-        try:
-            start_dt = datetime.strptime(event.ProgressStartDate, "%Y-%m-%d")
-        except ValueError:
-            start_dt = None
+        # ProgressStartDate가 이제 date 객체이므로 datetime으로 변환
+        start_dt = datetime.combine(event.ProgressStartDate, datetime.min.time())
 
     pre_start_index = 0
     def build_point(record_time: datetime, count: int):

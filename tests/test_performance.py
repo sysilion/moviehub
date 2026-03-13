@@ -1,6 +1,7 @@
 import pytest
 import time
 from src.database.models import Event
+from datetime import date
 
 def test_dashboard_performance(client, session):
     # Create 100 mock events
@@ -11,8 +12,8 @@ def test_dashboard_performance(client, session):
             Operator="LOTTE",
             EventName=f"Performance Test Event {i} 아트카드",
             GiftID=str(10000 + i),
-            ProgressStartDate="2026-03-01",
-            ProgressEndDate="2026-03-31"
+            ProgressStartDate=date(2026, 3, 1),
+            ProgressEndDate=date(2026, 3, 31)
         ))
     session.add_all(events)
     session.commit()

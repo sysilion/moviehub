@@ -1,18 +1,22 @@
-import os
+from abc import ABC, abstractmethod
 import requests
 from src.utils.logger import get_logger
-from dotenv import load_dotenv
+from src.utils.config import settings
 
-load_dotenv()
 logger = get_logger("Notifier")
 
-class TelegramNotifier:
+class BaseNotifier(ABC):
+    @abstractmethod
+    def send_message(self, text: str):
+        pass
+
+class TelegramNotifier(BaseNotifier):
     def __init__(self):
-        self.token = os.getenv("TELEGRAM_BOT_TOKEN")
-        self.chat_id = os.getenv("TELEGRAM_CHAT_ID")
+        self.token = settings.TELEGRAM_BOT_TOKEN
+        self.chat_id = settings.TELEGRAM_CHAT_ID
         self.enabled = bool(self.token and self.chat_id)
         if not self.enabled:
-            logger.warning("Telegram Bot Token or Chat ID not found in environment variables.")
+            logger.warning("Telegram Bot Token or Chat ID not configured.")
 
     def send_message(self, text: str):
         if not self.enabled:
@@ -27,8 +31,18 @@ class TelegramNotifier:
         try:
             response = requests.post(url, json=payload)
             response.raise_for_status()
-            logger.info("Notification sent successfully.")
+            logger.info("Telegram notification sent successfully.")
         except Exception as e:
-            logger.error(f"Failed to send notification: {e}")
+            logger.error(f"Failed to send Telegram notification: {e}")
 
-notifier = TelegramNotifier()
+class CompositeNotifier(BaseNotifier):
+    def __init__(self, notifiers: list[BaseNotifier]):
+        self.notifiers = notifiers
+
+    def send_message(self, text: str):
+        for notifier in self.notifiers:
+            notifier.send_message(text)
+
+# 기본 알림 객체 생성
+_telegram = TelegramNotifier()
+notifier = CompositeNotifier([_telegram])

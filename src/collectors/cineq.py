@@ -55,9 +55,18 @@ class CineQCollector(BaseCollector):
         else:
             event.Operator = "CINEQ"
         
+        def parse_date(date_str):
+            if not date_str: return None
+            # "2025.01.01" 또는 "2025-01-01" 형식 대응
+            clean_date = date_str.replace(".", "-")[:10]
+            try:
+                return datetime.strptime(clean_date, "%Y-%m-%d").date()
+            except (ValueError, TypeError):
+                return None
+
         event.EventName = event_data.get("Title")
-        event.ProgressStartDate = event_data.get("StartDate", "").replace(".", "-")
-        event.ProgressEndDate = event_data.get("EndDate", "").replace(".", "-")
+        event.ProgressStartDate = parse_date(event_data.get("StartDate"))
+        event.ProgressEndDate = parse_date(event_data.get("EndDate"))
         event.ImageUrl = "https://www.cineq.co.kr" + event_data.get("ImgUrl", "")
         
         self.session.commit()
