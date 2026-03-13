@@ -1,0 +1,45 @@
+@codebase_investigator 
+
+이벤트 조회로직 재외하고 개선방안 확인해줘
+
+<system_note>
+The user has explicitly selected the following agent(s): codebase_investigator. Please use the following tool(s) to delegate the task: 'codebase_investigator'.
+</system_note>
+
+---
+
+현재 계획을 todo로 정리해서 파일로 저장하고 해당 파일 기반으로 개선작업 진행해줘
+
+---
+
+vercel/speed-insights 이 기능도 활성화해줘
+
+---
+
+17:55:01.488 Running build in Washington, D.C., USA (East) – iad1
+17:55:01.488 Build machine configuration: 2 cores, 8 GB
+17:55:01.613 Cloning github.com/sysilion/moviehub (Branch: main, Commit: 6ae7f5c)
+17:55:01.614 Previous build caches not available.
+17:55:02.046 Cloning completed: 433.000ms
+17:55:02.406 Running "vercel build"
+17:55:03.043 Vercel CLI 50.32.4
+17:55:03.194 WARNING! Due to `builds` existing in your configuration file, the Build and Development Settings defined in your Project Settings will not apply. Learn More: https://vercel.link/unused-build-settings
+17:55:04.642 Using Python 3.14 from .python-version
+17:55:04.649 Creating virtual environment at "/vercel/path0/.vercel/python/.venv"...
+17:55:07.814 Using uv at "/usr/local/bin/uv"
+17:55:07.817 Installing required dependencies from pyproject.toml...
+17:55:09.670 Build Completed in /vercel/output [6s]
+17:55:09.893 Deploying outputs...
+17:55:32.763 Deployment completed
+17:55:33.860 Creating build cache...
+17:55:33.976 Skipping cache upload because no files were prepared
+
+워닝 로그 안나오게 해줘
+
+---
+
+수정사항 푸시해줘
+
+---
+
+에러 발생중이야 확인해서 수정하고 에러 발생하지 않게 만든다음에 푸시해
