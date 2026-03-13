@@ -1,0 +1,272 @@
+{
+  "sessionId": "f417fcf1-87b0-489d-a01b-b726ec226472",
+  "projectHash": "16ca10ddc582a2d6fea73afa87d6c39f386f48130260ab916b366c0b6f4af07b",
+  "startTime": "2026-03-13T08:26:04.442Z",
+  "lastUpdated": "2026-03-13T08:53:31.956Z",
+  "messages": [
+    {
+      "id": "e291cde6-2d8f-4334-8800-37942877c041",
+      "timestamp": "2026-03-13T08:26:04.442Z",
+      "type": "user",
+      "content": [
+        {
+          "text": "@codebase_investigator \n\n이벤트 조회로직 재외하고 개선방안 확인해줘"
+        },
+        {
+          "text": "\n<system_note>\nThe user has explicitly selected the following agent(s): codebase_investigator. Please use the following tool(s) to delegate the task: 'codebase_investigator'.\n</system_note>\n"
+        }
+      ],
+      "displayContent": [
+        {
+          "text": "@codebase_investigator \n\n이벤트 조회로직 재외하고 개선방안 확인해줘"
+        }
+      ]
+    },
+    {
+      "id": "38b94b49-26d2-4662-a753-103ee23ea21d",
+      "timestamp": "2026-03-13T08:28:29.522Z",
+      "type": "gemini",
+      "content": "",
+      "thoughts": [
+        {
+          "subject": "Analyzing Improvement Areas",
+          "description": "I'm zeroing in on areas for enhancement, specifically targeting architecture, design, and performance, while keeping the event retrieval logic off the table. My focus is now on mapping out the codebase to pinpoint specific code structures and modules ripe for optimization, considering caching and concurrency strategies.",
+          "timestamp": "2026-03-13T08:28:19.385Z"
+        }
+      ],
+      "tokens": {
+        "input": 34561,
+        "output": 203,
+        "cached": 0,
+        "thoughts": 285,
+        "tool": 0,
+        "total": 35049
+      },
+      "model": "gemini-3-pro-preview",
+      "toolCalls": [
+        {
+          "id": "codebase_investigator_1773390509520_0",
+          "name": "codebase_investigator",
+          "args": {
+            "objective": "Analyze the 'moviehub' codebase to identify improvement opportunities, EXCLUDING the event retrieval/collection logic (i.e., ignore src/collectors/* logic related to fetching data).\n\nFocus on the following areas:\n1. **Web Application (`src/web`)**: Code quality, templates, route handling, potential UI/UX improvements.\n2. **Database (`src/database`)**: Schema design, query efficiency, connection management.\n3. **Scheduler (`src/scheduler`)**: Job scheduling mechanism, reliability, error handling.\n4. **Utilities (`src/utils`)**: Logging, notification system (Telegram/Discord?), configuration management.\n5. **Testing (`tests`)**: Test coverage, test structure.\n6. **Project Structure & Configuration**: `main.py`, `pyproject.toml`, dependency management.\n\nProvide a structured report with specific file paths and actionable insights for refactoring, optimization, or feature enhancements."
+          },
+          "result": [
+            {
+              "functionResponse": {
+                "id": "codebase_investigator_1773390509520_0",
+                "name": "codebase_investigator",
+                "response": {
+                  "output": "Subagent 'codebase_investigator' finished.\nTermination Reason: GOAL\nResult:\n{\n  \"SummaryOfFindings\": \"The investigation was interrupted, but a comprehensive overview of the 'moviehub' codebase (excluding collection logic) was achieved. \\n\\nKey insights for improvement:\\n\\n1. **Web Application (`src/web`)**: \\n   - **Refactoring**: Move business logic (like the `GOODS_KEYWORDS` filtering) out of `app.py` into a service layer or specialized DB queries to improve maintainability.\\n   - **UI/UX**: The search and filter logic in the dashboard is robust but the frontend code (HTML/JS) has some duplication (e.g., operator badge colors). Moving to a more component-based approach or using Jinja2 macros would help.\\n   - **Performance**: Pagination is implemented but the 'total count' and 'items' queries are separate. Consider using a single query or a more efficient count mechanism for large datasets.\\n\\n2. **Database (`src/database`)**:\\n   - **Schema Design**: `ProgressStartDate` and `ProgressEndDate` in the `Event` model are `String`. These should be `Date` or `DateTime` objects to allow for native SQL date comparisons and better indexing.\\n   - **Migrations**: There is no database migration system (like Alembic). Adding one is critical for managing schema changes as the project evolves.\\n   - **Connection Management**: SQLite is used with `check_same_thread=False`. While sufficient for low traffic, moving to a managed PostgreSQL (already supported in `get_engine`) is recommended for production.\\n\\n3. **Scheduler (`src/scheduler`)**:\\n   - **Reliability**: Currently uses `BackgroundScheduler` with an in-memory job store. If the service restarts, scheduled jobs for individual events are lost until the next 'Main Discovery Job' runs. Switching to a persistent job store (e.g., SQLAlchemyJobStore) would fix this.\\n   - **Logic**: The scheduler manually reschedules jobs after execution. While this provides 'jitter', APScheduler's built-in interval triggers with `jitter` parameters might be cleaner.\\n\\n4. **Utilities (`src/utils`)**:\\n   - **Notification**: `TelegramNotifier` is hardcoded. Implementing a `BaseNotifier` interface and allowing multiple providers (Discord, Slack, etc.) via configuration would enhance the system's flexibility.\\n   - **Config Management**: Transitioning from simple `os.getenv` calls to a structured configuration management tool like `Pydantic Settings` would improve validation and type safety.\\n\\n5. **Testing (`tests`)**:\\n   - **Coverage**: Basic tests for web routes and collectors exist. However, more 'integration' tests for the scheduler's lifecycle and edge cases (e.g., handling collector failures) are needed.\\n   - **Structure**: Using an in-memory SQLite with `cache=shared` in `conftest.py` is a good practice for speed.\\n\\n6. **Project Structure**:\\n   - The project is well-organized, but `main.py` and `src/web/app.py` both contain startup logic. Consolidating the entry point or clearly separating the Vercel-specific logic from the standalone runner would reduce confusion.\",\n  \"ExplorationTrace\": [\n    \"Analyzed `pyproject.toml` and `main.py` to understand project entry points and dependencies.\",\n    \"Examined `src/web/app.py` and Jinja2 templates (`base.html`, `index.html`, `detail.html`) to evaluate web application structure and UI/UX.\",\n    \"Reviewed `src/database/models.py` to assess schema design and session management.\",\n    \"Investigated `src/scheduler/main.py` to understand the background job logic and APScheduler integration.\",\n    \"Checked `src/utils/notifier.py` and `src/utils/logger.py` for utility implementation details.\",\n    \"Reviewed the `tests/` directory to evaluate testing strategies and coverage.\",\n    \"Identified architectural patterns and potential areas for improvement across all specified domains.\"\n  ],\n  \"RelevantLocations\": [\n    {\n      \"FilePath\": \"src/web/app.py\",\n      \"Reasoning\": \"Contains the core logic for the FastAPI web application, including routing, dependency injection for DB, and hardcoded filtering logic.\",\n      \"KeySymbols\": [\n        \"app\",\n        \"read_dashboard\",\n        \"get_db\",\n        \"lifespan\",\n        \"GOODS_KEYWORDS\"\n      ]\n    },\n    {\n      \"FilePath\": \"src/database/models.py\",\n      \"Reasoning\": \"Defines the database schema. Date fields are currently stored as strings, which is a significant area for optimization.\",\n      \"KeySymbols\": [\n        \"Event\",\n        \"InventoryLibrary\",\n        \"InventoryHistory\",\n        \"get_engine\"\n      ]\n    },\n    {\n      \"FilePath\": \"src/scheduler/main.py\",\n      \"Reasoning\": \"Manages background tasks. Uses an in-memory job store and manual rescheduling logic which could be improved for reliability.\",\n      \"KeySymbols\": [\n        \"MovieHubScheduler\",\n        \"update_event_inventory\",\n        \"main_discovery_job\"\n      ]\n    },\n    {\n      \"FilePath\": \"src/utils/notifier.py\",\n      \"Reasoning\": \"Handles notifications. Currently tightly coupled to Telegram and lacks abstraction for other platforms.\",\n      \"KeySymbols\": [\n        \"TelegramNotifier\"\n      ]\n    },\n    {\n      \"FilePath\": \"src/web/templates/index.html\",\n      \"Reasoning\": \"Main dashboard template. UI logic (like operator badges) is somewhat repetitive and could be improved with better components.\",\n      \"KeySymbols\": []\n    }\n  ]\n}"
+                }
+              }
+            }
+          ],
+          "status": "success",
+          "timestamp": "2026-03-13T08:31:49.726Z",
+          "resultDisplay": "\nSubagent codebase_investigator Finished\n\nTermination Reason:\n GOAL\n\nResult:\n{\n  \"SummaryOfFindings\": \"The investigation was interrupted, but a comprehensive overview of the 'moviehub' codebase (excluding collection logic) was achieved. \\n\\nKey insights for improvement:\\n\\n1. **Web Application (`src/web`)**: \\n   - **Refactoring**: Move business logic (like the `GOODS_KEYWORDS` filtering) out of `app.py` into a service layer or specialized DB queries to improve maintainability.\\n   - **UI/UX**: The search and filter logic in the dashboard is robust but the frontend code (HTML/JS) has some duplication (e.g., operator badge colors). Moving to a more component-based approach or using Jinja2 macros would help.\\n   - **Performance**: Pagination is implemented but the 'total count' and 'items' queries are separate. Consider using a single query or a more efficient count mechanism for large datasets.\\n\\n2. **Database (`src/database`)**:\\n   - **Schema Design**: `ProgressStartDate` and `ProgressEndDate` in the `Event` model are `String`. These should be `Date` or `DateTime` objects to allow for native SQL date comparisons and better indexing.\\n   - **Migrations**: There is no database migration system (like Alembic). Adding one is critical for managing schema changes as the project evolves.\\n   - **Connection Management**: SQLite is used with `check_same_thread=False`. While sufficient for low traffic, moving to a managed PostgreSQL (already supported in `get_engine`) is recommended for production.\\n\\n3. **Scheduler (`src/scheduler`)**:\\n   - **Reliability**: Currently uses `BackgroundScheduler` with an in-memory job store. If the service restarts, scheduled jobs for individual events are lost until the next 'Main Discovery Job' runs. Switching to a persistent job store (e.g., SQLAlchemyJobStore) would fix this.\\n   - **Logic**: The scheduler manually reschedules jobs after execution. While this provides 'jitter', APScheduler's built-in interval triggers with `jitter` parameters might be cleaner.\\n\\n4. **Utilities (`src/utils`)**:\\n   - **Notification**: `TelegramNotifier` is hardcoded. Implementing a `BaseNotifier` interface and allowing multiple providers (Discord, Slack, etc.) via configuration would enhance the system's flexibility.\\n   - **Config Management**: Transitioning from simple `os.getenv` calls to a structured configuration management tool like `Pydantic Settings` would improve validation and type safety.\\n\\n5. **Testing (`tests`)**:\\n   - **Coverage**: Basic tests for web routes and collectors exist. However, more 'integration' tests for the scheduler's lifecycle and edge cases (e.g., handling collector failures) are needed.\\n   - **Structure**: Using an in-memory SQLite with `cache=shared` in `conftest.py` is a good practice for speed.\\n\\n6. **Project Structure**:\\n   - The project is well-organized, but `main.py` and `src/web/app.py` both contain startup logic. Consolidating the entry point or clearly separating the Vercel-specific logic from the standalone runner would reduce confusion.\",\n  \"ExplorationTrace\": [\n    \"Analyzed `pyproject.toml` and `main.py` to understand project entry points and dependencies.\",\n    \"Examined `src/web/app.py` and Jinja2 templates (`base.html`, `index.html`, `detail.html`) to evaluate web application structure and UI/UX.\",\n    \"Reviewed `src/database/models.py` to assess schema design and session management.\",\n    \"Investigated `src/scheduler/main.py` to understand the background job logic and APScheduler integration.\",\n    \"Checked `src/utils/notifier.py` and `src/utils/logger.py` for utility implementation details.\",\n    \"Reviewed the `tests/` directory to evaluate testing strategies and coverage.\",\n    \"Identified architectural patterns and potential areas for improvement across all specified domains.\"\n  ],\n  \"RelevantLocations\": [\n    {\n      \"FilePath\": \"src/web/app.py\",\n      \"Reasoning\": \"Contains the core logic for the FastAPI web application, including routing, dependency injection for DB, and hardcoded filtering logic.\",\n      \"KeySymbols\": [\n        \"app\",\n        \"read_dashboard\",\n        \"get_db\",\n        \"lifespan\",\n        \"GOODS_KEYWORDS\"\n      ]\n    },\n    {\n      \"FilePath\": \"src/database/models.py\",\n      \"Reasoning\": \"Defines the database schema. Date fields are currently stored as strings, which is a significant area for optimization.\",\n      \"KeySymbols\": [\n        \"Event\",\n        \"InventoryLibrary\",\n        \"InventoryHistory\",\n        \"get_engine\"\n      ]\n    },\n    {\n      \"FilePath\": \"src/scheduler/main.py\",\n      \"Reasoning\": \"Manages background tasks. Uses an in-memory job store and manual rescheduling logic which could be improved for reliability.\",\n      \"KeySymbols\": [\n        \"MovieHubScheduler\",\n        \"update_event_inventory\",\n        \"main_discovery_job\"\n      ]\n    },\n    {\n      \"FilePath\": \"src/utils/notifier.py\",\n      \"Reasoning\": \"Handles notifications. Currently tightly coupled to Telegram and lacks abstraction for other platforms.\",\n      \"KeySymbols\": [\n        \"TelegramNotifier\"\n      ]\n    },\n    {\n      \"FilePath\": \"src/web/templates/index.html\",\n      \"Reasoning\": \"Main dashboard template. UI logic (like operator badges) is somewhat repetitive and could be improved with better components.\",\n      \"KeySymbols\": []\n    }\n  ]\n}\n",
+          "displayName": "Codebase Investigator Agent",
+          "description": "The specialized tool for codebase analysis, architectural mapping, and understanding system-wide dependencies.\n    Invoke this tool for tasks like vague requests, bug root-cause analysis, system refactoring, comprehensive feature implementation or to answer questions about the codebase that require investigation.\n    It returns a structured report with key file paths, symbols, and actionable architectural insights.",
+          "renderOutputAsMarkdown": true
+        }
+      ]
+    },
+    {
+      "id": "0ad16eca-1b85-4132-a639-1bb69f67e8e0",
+      "timestamp": "2026-03-13T08:32:11.932Z",
+      "type": "gemini",
+      "content": "",
+      "thoughts": [
+        {
+          "subject": "Structuring Actionable Findings",
+          "description": "I'm currently organizing the investigator's report. My focus is on creating actionable categories. Right now, I'm concentrating on the web application component. I intend to refactor by extracting the business logic, specifically the `GOODS_KEYWORDS` filtering, from `app.py` into a dedicated service to improve maintainability and separation of concerns.",
+          "timestamp": "2026-03-13T08:32:00.057Z"
+        },
+        {
+          "subject": "Prioritizing Implementation Strategies",
+          "description": "I've outlined specific actions and grouped them by component, focusing on the web application, database, scheduler, and utilities. The web application improvements include refactoring business logic, template optimization with Jinja2 macros, and performance enhancements. Moving on to database, I'm ready to convert data types, implement migrations and update connection management.",
+          "timestamp": "2026-03-13T08:32:02.414Z"
+        },
+        {
+          "subject": "Outlining Improvement Plans",
+          "description": "I've carefully reviewed the investigator's report and refined my initial assessment. I'm now composing a prioritized list of improvements, categorized by component: Web Application, Database, Scheduler, Utilities, Testing, and Project Structure. Before presenting this structured plan, I'm verifying the specifics regarding the date fields in `src/database/models.py` and the scheduler's job store to ensure accuracy. Then I will confirm with the user.",
+          "timestamp": "2026-03-13T08:32:08.238Z"
+        },
+        {
+          "subject": "Structuring Korean Presentation",
+          "description": "I'm now ready to organize the information for the user in Korean, as requested. I'm focusing on providing clear categories for the improvements. I'm preparing to review `src/web/app.py` for `GOODS_KEYWORDS` logic and `src/database/models.py` for the Date fields, to confirm the findings and then present the improvement plan comprehensively.",
+          "timestamp": "2026-03-13T08:32:11.064Z"
+        },
+        {
+          "subject": "Preparing Korean Presentation",
+          "description": "I'm now completely ready to present the user with the improvements plan. I have checked `src/web/app.py` for `GOODS_KEYWORDS` and confirmed, then I reviewed `src/database/models.py` for the date field. I have also re-categorized the findings in Korean, as requested. The presentation is ready and I will now make the final, clear presentation to the user, incorporating the adjustments.",
+          "timestamp": "2026-03-13T08:32:11.121Z"
+        }
+      ],
+      "tokens": {
+        "input": 36055,
+        "output": 34,
+        "cached": 0,
+        "thoughts": 861,
+        "tool": 0,
+        "total": 36950
+      },
+      "model": "gemini-3-pro-preview",
+      "toolCalls": [
+        {
+          "id": "read_file_1773390731647_0",
+          "name": "read_file",
+          "args": {
+            "file_path": "src/web/app.py"
+          },
+          "result": [
+            {
+              "functionResponse": {
+                "id": "read_file_1773390731647_0",
+                "name": "read_file",
+                "response": {
+                  "output": "import math\nfrom fastapi import FastAPI, Request, Depends, BackgroundTasks\nfrom fastapi.templating import Jinja2Templates\nfrom fastapi.responses import HTMLResponse, JSONResponse\nfrom sqlalchemy.orm import Session\nfrom sqlalchemy import func, or_\nfrom src.database.models import get_session, Event, Inventory, InventoryHistory\nfrom src.scheduler.main import start_scheduler, stop_scheduler, scheduler\nfrom src.collectors.lotte import LotteCinemaCollector\nfrom contextlib import asynccontextmanager\nfrom datetime import datetime, timedelta\nimport os\n\n# 템플릿 설정\nBASE_DIR = os.path.dirname(os.path.abspath(__file__))\ntemplates = Jinja2Templates(directory=os.path.join(BASE_DIR, \"templates\"))\n\ndef format_stock(count):\n    if count is None: return \"정보 없음\"\n    count = int(count)\n    if count >= 50: return f\"{count}개 이상\"\n    elif count > 0: return f\"{count}개 이하\"\n    else: return \"소진\"\n\ntemplates.env.filters[\"format_stock\"] = format_stock\n\n# DB 세션 의존성\ndef get_db():\n    db = get_session()\n    try: yield db\n    finally: db.close()\n\nfrom src.collectors.megabox import MegaboxCollector\nfrom src.collectors.cgv import CGVCollector\nfrom src.collectors.cineq import CineQCollector\n\n# ... (생략된 기존 코드)\n\n@asynccontextmanager\nasync def lifespan(app: FastAPI):\n    # 앱 시작 시 DB 초기화 (테이블 생성)\n    from src.database.models import init_db\n    init_db()\n    \n    # Vercel(Serverless) 환경에서는 로컬 백그라운드 스케줄러를 시작하지 않습니다.\n    # 대신 Vercel Cron Jobs를 사용합니다.\n    if os.getenv(\"VERCEL\") != \"1\":\n        start_scheduler()\n    yield\n    if os.getenv(\"VERCEL\") != \"1\":\n        stop_scheduler()\n\napp = FastAPI(lifespan=lifespan)\n\n@app.get(\"/api/cron/discovery\")\nasync def cron_discovery(db: Session = Depends(get_db)):\n    \"\"\"Vercel Cron용: 신규 이벤트 탐색 및 자동 등록\"\"\"\n    collectors = [\n        LotteCinemaCollector(db),\n        MegaboxCollector(db),\n        CGVCollector(db),\n        CineQCollector(db)\n    ]\n    results = {}\n    for col in collectors:\n        name = col.__class__.__name__\n        try:\n            found = col.discover_new_events()\n            results[name] = f\"Found {found}\"\n        except Exception as e:\n            results[name] = f\"Error: {str(e)}\"\n    \n    return {\"status\": \"success\", \"results\": results}\n\n# 굿즈 판별 키워드\nGOODS_KEYWORDS = [\"증정\", \"뱃지\", \"아트카드\", \"artcard\", \"무비티켓\", \"키링\", \"시그니처\"]\nEXCLUDE_KEYWORDS = [\"콤보\", \"런칭\"]\n\n@app.get(\"/\", response_class=HTMLResponse)\nasync def read_dashboard(\n    request: Request, \n    q: str = None, \n    operator: str = None, # 운영사 필터 (LOTTE, CGV, MEGABOX, CINEQ)\n    show_ended: bool = False, \n    show_all: bool = False,\n    page: int = 1,\n    limit: int = 30,\n    db: Session = Depends(get_db)\n):\n    query = db.query(Event)\n    \n    # 운영사 필터 적용\n    if operator:\n        query = query.filter(Event.Operator == operator)\n    \n    today_str = datetime.now().strftime(\"%Y-%m-%d\")\n    \n    # 기본적으로 굿즈 관련 이벤트만 노출 (show_all이 False일 때 필터 적용)\n    if not show_all:\n        goods_filters = [Event.GiftID != None]\n        for kw in GOODS_KEYWORDS:\n            goods_filters.append(Event.EventName.ilike(f\"%{kw}%\"))\n        \n        # 합집합(확정 OR 예상 키워드) 적용\n        query = query.filter(or_(*goods_filters))\n        \n        # 제외 키워드 적용 (NOT LIKE)\n        for ex_kw in EXCLUDE_KEYWORDS:\n            query = query.filter(Event.EventName.not_ilike(f\"%{ex_kw}%\"))\n\n    # 검색어가 있으면 날짜 필터 무시하고 검색 결과 전체 반환\n    if q:\n        query = query.filter(Event.EventName.ilike(f\"%{q}%\"))\n    else:\n        # 검색어가 없을 때만 종료된 이벤트 필터링 적용\n        if not show_ended:\n            query = query.filter(or_(Event.ProgressEndDate >= today_str, Event.ProgressEndDate == None))\n\n    # 전체 개수 계산 (페이지네이션 전)\n    total_count = query.count()\n    total_pages = math.ceil(total_count / limit)\n    \n    # 페이지네이션 적용\n    offset = (page - 1) * limit\n    events = query.order_by(Event.ProgressStartDate.desc()).offset(offset).limit(limit).all()\n    \n    dashboard_data = []\n    for event in events:\n        total_stock = db.query(func.sum(Inventory.ItemCount)).filter(Inventory.EventID == event.EventID).scalar() or 0\n        last_updated = db.query(func.max(Inventory.LastUpdated)).filter(Inventory.EventID == event.EventID).scalar()\n        \n        # 굿즈 예상 여부 판별 (제외 키워드 포함)\n        is_potential = False\n        event_name_lower = event.EventName.lower()\n        if not event.GiftID:\n            has_good_kw = any(kw.lower() in event_name_lower for kw in GOODS_KEYWORDS)\n            has_exclude_kw = any(ex_kw.lower() in event_name_lower for ex_kw in EXCLUDE_KEYWORDS)\n            is_potential = has_good_kw and not has_exclude_kw\n\n        dashboard_data.append({\n            \"event\": event,\n            \"total_stock\": total_stock,\n            \"gift_id\": event.GiftID,\n            \"last_updated\": last_updated,\n            \"is_potential\": is_potential\n        })\n        \n    return templates.TemplateResponse(\"index.html\", {\n        \"request\": request,\n        \"events\": dashboard_data,\n        \"q\": q,\n        \"operator\": operator,\n        \"show_ended\": show_ended,\n        \"show_all\": show_all,\n        \"page\": page,\n        \"total_pages\": total_pages,\n        \"total_count\": total_count\n    })\n@app.get(\"/event/{event_id}\", response_class=HTMLResponse)\nasync def read_event_detail(request: Request, event_id: str, db: Session = Depends(get_db)):\n    event = db.query(Event).filter(Event.EventID == event_id).first()\n    inventory = db.query(Inventory).filter(Inventory.EventID == event_id).order_by(Inventory.DivisionCode, Inventory.CinemaName).all()\n    total_stock = sum(item.ItemCount for item in inventory)\n    return templates.TemplateResponse(\"detail.html\", {\n        \"request\": request, \"event\": event, \"inventory\": inventory, \"total_stock\": total_stock\n    })\n\n@app.post(\"/api/update/{event_id}\")\nasync def trigger_update(event_id: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):\n    \"\"\"즉시 수량 갱신 요청\"\"\"\n    event = db.query(Event).filter_by(EventID=event_id).first()\n    if not event or not event.GiftID: \n        return JSONResponse({\"status\": \"error\", \"message\": \"No GiftID found for this event. Please find GiftID first.\"}, status_code=400)\n    \n    gift_id = event.GiftID\n    \n    def update_task():\n        session = get_session()\n        try:\n            collector = LotteCinemaCollector(session)\n            if collector.collect_target_inventory(event_id, gift_id):\n                # 갱신 성공 시 스케줄러에 잡이 없으면 등록\n                if not scheduler.scheduler.get_job(f\"job_{event_id}\"):\n                    scheduler.schedule_single_event(event_id, gift_id)\n        finally: session.close()\n        \n    background_tasks.add_task(update_task)\n    return {\"status\": \"success\", \"message\": \"Update task started in background\"}\n\n@app.post(\"/api/scan-gift/{event_id}\")\nasync def trigger_gift_scan(event_id: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):\n    \"\"\"누락된 GiftID 스캔 요청\"\"\"\n    \n    def scan_task():\n        session = get_session()\n        try:\n            collector = LotteCinemaCollector(session)\n            if collector.match_missing_gift_id(event_id):\n                # 굿즈 매칭 성공 시 즉시 인벤토리 갱신 및 스케줄러 등록\n                event = session.query(Event).filter_by(EventID=event_id).first()\n                if event and event.GiftID:\n                    collector.collect_target_inventory(event_id, event.GiftID)\n                    if not scheduler.scheduler.get_job(f\"job_{event_id}\"):\n                        scheduler.schedule_single_event(event_id, event.GiftID)\n        finally: session.close()\n        \n    background_tasks.add_task(scan_task)\n    return {\"status\": \"success\", \"message\": \"GiftID scan started in background\"}\n\n@app.get(\"/api/history/{event_id}/{cinema_id}\")\nasync def get_stock_history(event_id: str, cinema_id: str, db: Session = Depends(get_db)):\n    \"\"\"특정 지점의 수량 변동 이력 데이터 반환 (현재 상태 포함)\"\"\"\n    event = db.query(Event).filter(Event.EventID == event_id).first()\n    start_dt = None\n    if event and event.ProgressStartDate:\n        try:\n            start_dt = datetime.strptime(event.ProgressStartDate, \"%Y-%m-%d\")\n        except ValueError:\n            start_dt = None\n\n    pre_start_index = 0\n    def build_point(record_time: datetime, count: int):\n        nonlocal pre_start_index\n        display_time = record_time\n        if start_dt and record_time < start_dt:\n            display_time = start_dt + timedelta(hours=6 + pre_start_index)\n            pre_start_index += 1\n        return {\n            \"time\": display_time.isoformat(timespec=\"seconds\"),\n            \"actual_time\": record_time.strftime(\"%m-%d %H:%M\"),\n            \"count\": count\n        }\n\n    # 1. 과거 이력 조회\n    history = db.query(InventoryHistory).filter_by(EventID=event_id, CinemaID=cinema_id).order_by(InventoryHistory.RecordTime.asc()).all()\n    \n    data = [build_point(h.RecordTime, h.ItemCount) for h in history]\n    \n    # 2. 현재 최신 상태 추가 (이력의 마지막보다 최신인 경우)\n    current = db.query(Inventory).filter_by(EventID=event_id, CinemaID=cinema_id).first()\n    if current:\n        current_time_str = current.LastUpdated.isoformat(timespec=\"seconds\")\n        # 마지막 이력과 시간이 다르거나 이력이 없는 경우 추가\n        if not data or data[-1][\"actual_time\"] != current.LastUpdated.strftime(\"%m-%d %H:%M\"):\n            data.append(build_point(current.LastUpdated, current.ItemCount))\n            \n    return data\n"
+                }
+              }
+            }
+          ],
+          "status": "success",
+          "timestamp": "2026-03-13T08:32:12.037Z",
+          "resultDisplay": "",
+          "displayName": "ReadFile",
+          "description": "Reads and returns the content of a specified file. If the file is large, the content will be truncated. The tool's response will clearly indicate if truncation has occurred and will provide details on how to read more of the file using the 'start_line' and 'end_line' parameters. Handles text, images (PNG, JPG, GIF, WEBP, SVG, BMP), audio files (MP3, WAV, AIFF, AAC, OGG, FLAC), and PDF files. For text files, it can read specific line ranges.",
+          "renderOutputAsMarkdown": true
+        },
+        {
+          "id": "read_file_1773390731931_1",
+          "name": "read_file",
+          "args": {
+            "file_path": "src/database/models.py"
+          },
+          "result": [
+            {
+              "functionResponse": {
+                "id": "read_file_1773390731931_1",
+                "name": "read_file",
+                "response": {
+                  "output": "from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, create_engine\nfrom sqlalchemy.ext.declarative import declarative_base\nfrom sqlalchemy.orm import sessionmaker, relationship\nimport os\nfrom datetime import datetime\nfrom dotenv import load_dotenv\n\nload_dotenv()\n\nBase = declarative_base()\n\nclass Event(Base):\n    __tablename__ = 'events'\n\n    EventID = Column(String, primary_key=True)\n    Operator = Column(String, default=\"LOTTE\", index=True) # 운영사 (LOTTE, CGV, MEGABOX, CINEQ)\n    EventName = Column(String)\n    GiftID = Column(String, nullable=True) # 굿즈 번호 필드 추가\n    EventClassificationCode = Column(String, nullable=True)\n    EventTypeCode = Column(String, nullable=True)\n    EventTypeName = Column(String, nullable=True)\n    ProgressStartDate = Column(String, nullable=True)\n    ProgressEndDate = Column(String, nullable=True)\n    ImageUrl = Column(String, nullable=True)\n    DetailImageUrl = Column(String, nullable=True)\n    RawData = Column(Text, nullable=True)\n    CreatedAt = Column(DateTime, default=datetime.now)\n    UpdatedAt = Column(DateTime, default=datetime.now, onupdate=datetime.now)\n\n    inventories = relationship(\"Inventory\", back_populates=\"event\", cascade=\"all, delete-orphan\")\n\nclass Inventory(Base):\n    __tablename__ = 'inventory'\n\n    id = Column(Integer, primary_key=True, autoincrement=True)\n    EventID = Column(String, ForeignKey('events.EventID'), index=True)\n    GiftID = Column(String, index=True)\n    CinemaID = Column(String, index=True)\n    CinemaName = Column(String)\n    DivisionCode = Column(String, nullable=True)\n    DetailDivisionCode = Column(String, nullable=True)\n    DivisionName = Column(String, nullable=True)\n    ItemCount = Column(Integer)\n    LastUpdated = Column(DateTime, default=datetime.now)\n\n    event = relationship(\"Event\", back_populates=\"inventories\")\n\nclass InventoryHistory(Base):\n    __tablename__ = 'inventory_history'\n\n    id = Column(Integer, primary_key=True, autoincrement=True)\n    EventID = Column(String, index=True)\n    GiftID = Column(String, index=True)\n    CinemaID = Column(String, index=True)\n    CinemaName = Column(String)\n    ItemCount = Column(Integer)\n    RecordTime = Column(DateTime, default=datetime.now)\n\n_engine = None\n\ndef get_engine(db_url=None):\n    global _engine\n    if _engine:\n        return _engine\n\n    if not db_url:\n        db_url = os.getenv('DATABASE_URL')\n        if not db_url:\n            if os.getenv('VERCEL') == '1':\n                db_url = 'sqlite:////tmp/moviehub.db'\n            else:\n                db_url = 'sqlite:///moviehub.db'\n    \n    # SQLite의 경우 멀티스레드 환경(FastAPI + Scheduler)에서 check_same_thread=False 필요\n    connect_args = {}\n    if db_url.startswith('sqlite'):\n        connect_args = {'check_same_thread': False}\n    else:\n        # Postgres 등 외부 DB 사용 시 연결 풀 설정 보강\n        return create_engine(\n            db_url,\n            pool_size=5,\n            max_overflow=10,\n            pool_recycle=3600,\n            pool_pre_ping=True\n        )\n\n    _engine = create_engine(db_url, connect_args=connect_args)\n    return _engine\n\ndef get_session(engine=None):\n    if not engine:\n        engine = get_engine()\n    Session = sessionmaker(bind=engine)\n    return Session()\n\ndef init_db(engine=None):\n    if not engine:\n        engine = get_engine()\n    Base.metadata.create_all(engine)"
+                }
+              }
+            }
+          ],
+          "status": "success",
+          "timestamp": "2026-03-13T08:32:12.037Z",
+          "resultDisplay": "",
+          "displayName": "ReadFile",
+          "description": "Reads and returns the content of a specified file. If the file is large, the content will be truncated. The tool's response will clearly indicate if truncation has occurred and will provide details on how to read more of the file using the 'start_line' and 'end_line' parameters. Handles text, images (PNG, JPG, GIF, WEBP, SVG, BMP), audio files (MP3, WAV, AIFF, AAC, OGG, FLAC), and PDF files. For text files, it can read specific line ranges.",
+          "renderOutputAsMarkdown": true
+        }
+      ]
+    },
+    {
+      "id": "025a8ed3-c17b-46bb-8026-00196ed6618d",
+      "timestamp": "2026-03-13T08:36:47.580Z",
+      "type": "gemini",
+      "content": "이벤트 조회 로직을 제외한 시스템 전반에 걸친 개선 방안을 분석했습니다. 현재 프로젝트는 기능적으로 잘 작동하고 있지만, **유지보수성, 확장성, 안정성** 측면에서 몇 가지 개선이 필요합니다.\n\n주요 개선 방안을 5가지 카테고리로 정리해 드립니다.\n\n### 1. 아키텍처 및 유지보수성 (Architecture & Maintainability)\n현재 비즈니스 로직이 `app.py`에 집중되어 있어 코드가 비대해질 우려가 있습니다.\n*   **서비스 레이어 도입**: `app.py`에 있는 필터링 로직(예: `GOODS_KEYWORDS` 처리, 검색 로직)을 별도의 `Service` 클래스로 분리하여 관리합니다.\n*   **설정 관리 고도화**: `os.getenv`를 직접 사용하는 대신 `pydantic-settings`를 도입하여 환경 변수 검증 및 타입 안정성을 확보합니다.\n*   **알림 시스템 추상화**: `TelegramNotifier`에 하드코딩된 로직을 `BaseNotifier` 인터페이스로 추상화하여, 향후 디스코드나 슬랙 등으로 쉽게 확장할 수 있도록 구조를 개선합니다.\n\n### 2. 데이터베이스 및 성능 (Database & Performance)\n데이터 타입과 쿼리 방식에서 최적화할 부분이 있습니다.\n*   **스키마 최적화**: `Event` 모델의 `ProgressStartDate`, `ProgressEndDate`가 현재 `String`으로 되어 있습니다. 이를 `Date` 또는 `DateTime` 타입으로 변경하여 DB 차원의 날짜 비교 및 정렬 성능을 높여야 합니다.\n*   **페이지네이션 최적화**: 현재 전체 개수(`count`)와 데이터 조회(`select`)가 별도 쿼리로 실행됩니다. 데이터가 많아질 경우를 대비해 최적화된 쿼리 전략이 필요합니다.\n*   **마이그레이션 도구 도입**: DB 스키마 변경 이력을 관리하기 위해 `Alembic`을 도입하는 것이 좋습니다 (현재는 `init_db`로 테이블 생성만 가능).\n\n### 3. 안정성 및 신뢰성 (Reliability & Stability)\n백그라운드 작업의 안정성을 높여야 합니다.\n*   **스케줄러 영속성 확보**: 현재 `APScheduler`가 메모리(`MemoryJobStore`)에만 잡을 저장하므로, 서버 재시작 시 등록된 개별 이벤트 갱신 예약이 사라집니다. `SQLAlchemyJobStore`를 사용하여 DB에 스케줄을 저장하도록 변경해야 합니다.\n*   **에러 핸들링 강화**: 웹 API 에러 발생 시 일관된 JSON 에러 포맷을 반환하도록 예외 처리 핸들러를 중앙화합니다.\n\n### 4. 프론트엔드 및 사용자 경험 (Frontend & UX)\n코드 중복을 줄이고 유지보수를 용이하게 합니다.\n*   **템플릿 리팩토링**: `index.html` 등에서 반복되는 UI 요소(운영사 배지, 상태 표시 등)를 Jinja2 `macro`로 분리하여 재사용성을 높입니다.\n\n### 5. 테스트 (Testing)\n*   **통합 테스트 추가**: 스케줄러 라이프사이클이나 API의 전체 흐름을 검증하는 통합 테스트를 보강합니다.\n\n---\n\n**추천 진행 순서:**\n가장 시급하고 효과가 큰 작업부터 진행하는 것을 추천합니다.\n\n1.  **DB 스키마 최적화 (날짜 필드 타입 변경)**: 향후 데이터가 쌓일수록 변경이 어렵습니다.\n2.  **스케줄러 영속성 확보**: 서버 재배포/재시작 시 예약된 작업이 날아가는 문제를 방지합니다.\n3.  **서비스 레이어 분리**: 코드 복잡도를 낮춰 이후 작업들을 수월하게 합니다.\n\n어떤 작업부터 진행하시겠습니까? (또는 특정 부분에 대해 더 자세한 설명이 필요하신가요?)",
+      "thoughts": [
+        {
+          "subject": "Examining the Code",
+          "description": "I've just reviewed the code, and the investigator's report is accurate. The Python script has some clear issues. Specifically, the keywords and filtering logic are hardcoded, which creates maintenance challenges. Also, the pagination is manual and inefficient. Finally, the background tasks are directly implemented, which violates good design.",
+          "timestamp": "2026-03-13T08:36:40.351Z"
+        },
+        {
+          "subject": "Outlining the Strategy",
+          "description": "The plan is taking shape, and I've begun to break down the improvements. I'm focusing on organizing the tasks. I'll be addressing architecture, database efficiency, and reliability concerns. I've begun to draft the categories, ensuring they align with best practices and maintainability. Next, I will delve into the specific tasks.",
+          "timestamp": "2026-03-13T08:36:41.259Z"
+        },
+        {
+          "subject": "Formulating a Response",
+          "description": "The categories are now clear, and the improvements are broken down as planned. I have a firm grasp of the necessary actions, including the application of the service layer pattern to address business logic. For database optimization, I will be working on schema adjustments, optimizing pagination, and establishing a robust connection pool for production. Furthermore, I will address reliability concerns with a persistent scheduler and implement centralized error handling. I'm considering using Jinja2 macros to refactor the templates. Now, the next step is prioritizing these improvements.",
+          "timestamp": "2026-03-13T08:36:42.355Z"
+        }
+      ],
+      "tokens": {
+        "input": 39921,
+        "output": 878,
+        "cached": 32067,
+        "thoughts": 420,
+        "tool": 0,
+        "total": 41219
+      },
+      "model": "gemini-3-pro-preview"
+    },
+    {
+      "id": "8d22ed87-fdd5-45ae-87e5-b9c846a2b41a",
+      "timestamp": "2026-03-13T08:51:00.563Z",
+      "type": "user",
+      "content": [
+        {
+          "text": "현재 계획을 todo로 정리해서 파일로 저장하고 해당 파일 기반으로 개선작업 진행해줘"
+        }
+      ]
+    },
+    {
+      "id": "30fac8a1-9e42-42c1-b8cf-aae49e631a82",
+      "timestamp": "2026-03-13T08:53:31.838Z",
+      "type": "gemini",
+      "content": "",
+      "thoughts": [
+        {
+          "subject": "Creating a Plan of Action",
+          "description": "I've taken the user's feedback and am now constructing a detailed plan. This will serve as a roadmap. My current focus is generating the TODO list, which I'll then save as a markdown file to `plans/improvements_todo.md`. Next up: await the green light!",
+          "timestamp": "2026-03-13T08:52:43.476Z"
+        },
+        {
+          "subject": "Implementing the Improvements",
+          "description": "I'm now generating a more detailed plan, breaking down the improvements into smaller, manageable tasks. I've decided to prioritize tasks based on the five categories discussed, starting with database improvements and the scheduler, then moving on to service layer refactoring. My next step will be to create the plan's structure and begin listing specific actions for each category.",
+          "timestamp": "2026-03-13T08:53:00.064Z"
+        },
+        {
+          "subject": "Formulating the TODO List",
+          "description": "I'm now generating a draft of the `IMPROVEMENTS.md` file in markdown format, based on the categories previously established. It includes tasks such as database schema changes, job persistence, refactoring efforts, and frontend improvements. The focus is to create a detailed action plan. I'll prioritize database and scheduler tasks.",
+          "timestamp": "2026-03-13T08:53:26.492Z"
+        },
+        {
+          "subject": "Crafting the Improvement Plan",
+          "description": "I've just finished the `IMPROVEMENTS.md` draft, meticulously detailing the improvement tasks and categorizing them. The database and scheduler are the top priorities. The plan is to write the file, create the initial migration, and then start making changes. I'm ready to proceed with database schema changes.",
+          "timestamp": "2026-03-13T08:53:31.054Z"
+        }
+      ],
+      "tokens": {
+        "input": 40819,
+        "output": 13,
+        "cached": 0,
+        "thoughts": 1599,
+        "tool": 0,
+        "total": 42431
+      },
+      "model": "gemini-3-pro-preview",
+      "toolCalls": [
+        {
+          "id": "read_file_1773392011836_0",
+          "name": "read_file",
+          "args": {
+            "file_path": "requirements.txt"
+          },
+          "result": [
+            {
+              "functionResponse": {
+                "id": "read_file_1773392011836_0",
+                "name": "read_file",
+                "response": {
+                  "output": "sqlalchemy\nrequests\napscheduler\npython-dotenv\nfastapi\nuvicorn[standard]\njinja2\npython-multipart\npsycopg2-binary\nplaywright\n"
+                }
+              }
+            }
+          ],
+          "status": "success",
+          "timestamp": "2026-03-13T08:53:31.955Z",
+          "resultDisplay": "",
+          "displayName": "ReadFile",
+          "description": "Reads and returns the content of a specified file. If the file is large, the content will be truncated. The tool's response will clearly indicate if truncation has occurred and will provide details on how to read more of the file using the 'start_line' and 'end_line' parameters. Handles text, images (PNG, JPG, GIF, WEBP, SVG, BMP), audio files (MP3, WAV, AIFF, AAC, OGG, FLAC), and PDF files. For text files, it can read specific line ranges.",
+          "renderOutputAsMarkdown": true
+        }
+      ]
+    }
+  ],
+  "kind": "main"
+}

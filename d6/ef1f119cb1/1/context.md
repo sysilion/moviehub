@@ -1,0 +1,18 @@
+# Session Context
+
+## User Prompts
+
+### Prompt 1
+
+@codebase_investigator 
+
+이벤트 조회로직 재외하고 개선방안 확인해줘
+
+<system_note>
+The user has explicitly selected the following agent(s): codebase_investigator. Please use the following tool(s) to delegate the task: 'codebase_investigator'.
+</system_note>
+
+### Prompt 2
+
+현재 계획을 todo로 정리해서 파일로 저장하고 해당 파일 기반으로 개선작업 진행해줘
+
