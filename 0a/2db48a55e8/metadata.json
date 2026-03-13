@@ -1,0 +1,49 @@
+{
+  "cli_version": "0.4.9",
+  "checkpoint_id": "0a2db48a55e8",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "IMPROVEMENTS.md",
+    "alembic.ini",
+    "alembic/README",
+    "alembic/env.py",
+    "alembic/script.py.mako",
+    "alembic/versions/538730e551e6_change_progressstartdate_and_.py",
+    "requirements.txt",
+    "src/collectors/cgv.py",
+    "src/collectors/cineq.py",
+    "src/collectors/lotte.py",
+    "src/collectors/megabox.py",
+    "src/database/models.py",
+    "src/scheduler/main.py",
+    "src/services/event_service.py",
+    "src/utils/config.py",
+    "src/utils/notifier.py",
+    "src/web/app.py",
+    "src/web/templates/base.html",
+    "src/web/templates/index.html",
+    "src/web/templates/macros.html",
+    "tests/test_performance.py",
+    "tests/test_security.py",
+    "tests/test_web.py",
+    "vercel.json"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0a/2db48a55e8/0/metadata.json",
+      "transcript": "/0a/2db48a55e8/0/full.jsonl",
+      "context": "/0a/2db48a55e8/0/context.md",
+      "content_hash": "/0a/2db48a55e8/0/content_hash.txt",
+      "prompt": "/0a/2db48a55e8/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 5460375,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 4911395,
+    "output_tokens": 28309,
+    "api_call_count": 70
+  }
+}
