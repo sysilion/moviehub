@@ -3,7 +3,7 @@
   "checkpoint_id": "add29ab7d930",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 10,
+  "checkpoints_count": 11,
   "files_touched": [
     "alembic/env.py",
     "main.py",
@@ -26,13 +26,20 @@
       "context": "/ad/d29ab7d930/1/context.md",
       "content_hash": "/ad/d29ab7d930/1/content_hash.txt",
       "prompt": "/ad/d29ab7d930/1/prompt.txt"
+    },
+    {
+      "metadata": "/ad/d29ab7d930/2/metadata.json",
+      "transcript": "/ad/d29ab7d930/2/full.jsonl",
+      "context": "/ad/d29ab7d930/2/context.md",
+      "content_hash": "/ad/d29ab7d930/2/content_hash.txt",
+      "prompt": "/ad/d29ab7d930/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 10781309,
+    "input_tokens": 26235931,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 8835704,
-    "output_tokens": 46458,
-    "api_call_count": 143
+    "cache_read_tokens": 22229520,
+    "output_tokens": 92960,
+    "api_call_count": 285
   }
 }
