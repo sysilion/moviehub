@@ -19,10 +19,23 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, handle_signal)
 
     try:
+        logger.info("Initializing MovieHub Service...")
+        
+        # 앱 시작 전 DB 초기화 및 마이그레이션 실행 (동기 방식)
+        from src.database.models import init_db, run_migrations
+        try:
+            logger.info("Initializing database schema...")
+            init_db()
+            logger.info("Running database migrations...")
+            run_migrations()
+            logger.info("Database initialization complete.")
+        except Exception as e:
+            logger.error(f"Failed to initialize database: {e}")
+            # 마이그레이션 실패 시에도 일단 서버 실행을 시도할지 여부는 정책에 따라 결정
+            # 여기서는 계속 진행합니다.
+
         logger.info("Starting MovieHub Web & Scheduler Service...")
         # host="0.0.0.0"은 외부 접속(내부망 및 터널링)을 허용하는 설정입니다.
-        # reload=True는 개발용입니다. 
-        # 운영 환경에서는 reload=False를 권장하며 worker 수를 조절할 수 있습니다.
         uvicorn.run(
             "src.web.app:app", 
             host="0.0.0.0", 

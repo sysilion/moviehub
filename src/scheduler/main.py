@@ -2,6 +2,7 @@ import time
 import random
 import signal
 import sys
+import pickle
 from datetime import datetime, timedelta
 from sqlalchemy import func, or_
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -13,23 +14,17 @@ from src.collectors.megabox import MegaboxCollector
 from src.collectors.cgv import CGVCollector
 from src.collectors.cineq import CineQCollector
 from src.utils.logger import get_logger
+from src.utils.config import settings
 
 logger = get_logger("Scheduler")
 
+# 전역 인스턴스를 위한 플레이스홀더
+_hub_scheduler = None
+
 class MovieHubScheduler:
     def __init__(self):
-        # DB 기반 JobStore 설정 (SQLite 또는 Postgres 연동)
-        # Vercel 환경(Serverless)에서는 스케줄러를 사용하지 않으므로 무거운 JobStore 설정을 건너뜁니다.
-        from src.utils.config import settings
-        jobstores = {}
-        if not settings.is_vercel:
-            jobstores['default'] = SQLAlchemyJobStore(engine=get_engine())
-        
-        # 데몬 스레드를 사용하도록 설정하여 프로세스 종료 시 함께 종료되도록 함
         self.scheduler = BackgroundScheduler(
-            jobstores=jobstores,
-            job_defaults={'misfire_grace_time': 60, 'coalesce': True},
-            # job을 관리하는 스레드 풀을 데몬으로 설정
+            job_defaults={'misfire_grace_time': None, 'coalesce': True},
             executors={'default': {'type': 'threadpool', 'max_workers': 5}}
         )
         self.running = False
@@ -53,39 +48,6 @@ class MovieHubScheduler:
         # 그 외 시간 (1~3시간 간격)
         return random.randint(3600, 10800)
 
-    def update_event_inventory(self, event_id, gift_id):
-        """특정 이벤트의 재고를 업데이트하는 작업 단위"""
-        session = get_session()
-        try:
-            # 기간 및 소진 여부 재확인
-            today = datetime.now().date()
-            event = session.query(Event).filter_by(EventID=event_id).first()
-            
-            if not event:
-                logger.info(f"Event {event_id} not found. Removing job.")
-                self.remove_job(event_id)
-                return
-
-            event_label = f"{event.Operator} : {event.EventName} ({event_id})"
-            logger.info(f"--- [Job] Updating {event_label} (Gift {gift_id}) ---")
-
-            if event.ProgressEndDate and event.ProgressEndDate < today:
-                logger.info(f"Event {event_label} has ended. Removing job.")
-                self.remove_job(event_id)
-                return
-
-            collector_class = self.collector_map.get(event.Operator, LotteCinemaCollector)
-            collector = collector_class(session)
-            collector.collect_target_inventory(event_id, gift_id)
-            
-        except Exception as e:
-            logger.error(f"Error in job for Event {event_id}: {e}")
-        finally:
-            session.close()
-        
-        # 다음 실행 시간 스케줄링 (랜덤 초 적용)
-        self.schedule_single_event(event_id, gift_id)
-
     def schedule_single_event(self, event_id, gift_id):
         """개별 이벤트에 대해 다음 실행 시간을 예약합니다."""
         interval_seconds = self.get_tracking_interval()
@@ -93,13 +55,18 @@ class MovieHubScheduler:
         
         # 로그를 위한 이벤트 정보 조회
         session = get_session()
-        event = session.query(Event).filter_by(EventID=event_id).first()
-        event_label = f"{event.Operator} : {event.EventName} ({event_id})" if event else event_id
-        session.close()
+        try:
+            event = session.query(Event).filter_by(EventID=event_id).first()
+            event_label = f"{event.Operator} : {event.EventName} ({event_id})" if event else event_id
+        except Exception as e:
+            logger.warning(f"Failed to fetch event info for logging: {e}")
+            event_label = event_id
+        finally:
+            session.close()
 
         job_id = f"job_{event_id}"
         self.scheduler.add_job(
-            self.update_event_inventory,
+            update_event_inventory_task,
             'date',
             run_date=run_time,
             args=[event_id, gift_id],
@@ -115,51 +82,19 @@ class MovieHubScheduler:
 
     def main_discovery_job(self):
         """활성 이벤트를 찾아 각각의 스케줄에 등록하는 메인 관리 작업 (동적 주기 적용)"""
-        logger.info("=== Main Discovery Job Started ===")
-        session = get_session()
-        try:
-            # 모든 운영사 컬렉터 탐색 실행
-            for operator, collector_class in self.collector_map.items():
-                try:
-                    collector = collector_class(session)
-                    collector.discover_new_events()
-                except Exception as e:
-                    logger.error(f"Discovery failed for {operator}: {e}")
-            
-            today = datetime.now().date()
-            active_targets = session.query(Inventory.EventID, Inventory.GiftID).distinct().join(
-                Event, Event.EventID == Inventory.EventID
-            ).filter(
-                or_(Event.ProgressEndDate >= today, Event.ProgressEndDate == None)
-            ).all()
+        # 즉시 실행
+        self.scheduler.add_job(main_discovery_task, 'date', run_date=datetime.now(), id='main_discovery_immediate', replace_existing=True)
 
-            for event_id, gift_id in active_targets:
-                job_id = f"job_{event_id}"
-                if not self.scheduler.get_job(job_id):
-                    total_stock = session.query(func.sum(Inventory.ItemCount)).filter_by(EventID=event_id, GiftID=gift_id).scalar() or 0
-                    if total_stock > 0:
-                        event = session.query(Event).filter_by(EventID=event_id).first()
-                        event_label = f"{event.Operator} : {event.EventName} ({event_id})" if event else event_id
-                        logger.info(f"Registering new tracking job for {event_label}")
-                        self.schedule_single_event(event_id, gift_id)
-                        
-        except Exception as e:
-            logger.error(f"Discovery job error: {e}")
-        finally:
-            session.close()
-
-        # 다음 탐색 작업 예약 (동적 주기 적용)
+        # 주기적 실행 예약
         now = datetime.now()
         if 9 <= now.hour < 18:
-            # 활동 시간: 10~15분 랜덤
             next_interval = random.randint(600, 900)
         else:
-            # 비활동 시간: 1~3시간 랜덤
             next_interval = random.randint(3600, 10800)
             
         run_time = datetime.now() + timedelta(seconds=next_interval)
         self.scheduler.add_job(
-            self.main_discovery_job,
+            main_discovery_task,
             'date',
             run_date=run_time,
             id='main_discovery',
@@ -168,34 +103,140 @@ class MovieHubScheduler:
         logger.info(f"Next Discovery Job scheduled at {run_time.strftime('%H:%M:%S')} (in {next_interval}s)")
 
     def start(self):
-        init_db()
-        self.running = True
-        
-        # 리스너 등록 (에러 로그 수집)
-        self.scheduler.add_listener(self._job_listener, EVENT_JOB_ERROR)
-        
-        # 즉시 한 번 실행하여 탐색 루프 시작
-        self.main_discovery_job()
-        
-        self.scheduler.start()
-        logger.info("Background scheduler with persistent job store started.")
+        try:
+            # DB 기반 JobStore 설정 (SQLite 또는 Postgres 연동)
+            # migrations가 끝난 후 start() 시점에 추가하여 lock 충돌 방지
+            if not settings.is_vercel:
+                try:
+                    # 'default' jobstore가 이미 존재하는지 확인
+                    if 'default' not in self.scheduler._jobstores:
+                        self.scheduler.add_jobstore(SQLAlchemyJobStore(engine=get_engine()), 'default')
+                        logger.info("Persistent SQLAlchemyJobStore added to scheduler.")
+                except Exception as e:
+                    logger.error(f"Failed to initialize SQLAlchemyJobStore: {e}")
+
+            self.running = True
+            
+            # 리스너 등록 (에러 로그 수집)
+            self.scheduler.add_listener(self._job_listener, EVENT_JOB_ERROR)
+            
+            # 초기 탐색 작업 등록
+            self.main_discovery_job()
+            
+            self.scheduler.start()
+            logger.info("Background scheduler started successfully.")
+        except Exception as e:
+            logger.error(f"Failed to start scheduler: {e}", exc_info=True)
+            self.running = False
 
     def stop(self):
         if self.running:
             self.running = False
-            # wait=False를 주어 즉시 종료를 시도하고, 
-            # 이미 실행 중인 작업이 있어도 셧다운을 진행합니다.
             try:
                 self.scheduler.shutdown(wait=False)
                 logger.info("Scheduler shut down successfully.")
             except Exception as e:
                 logger.error(f"Error during scheduler shutdown: {e}")
 
+def update_event_inventory_task(event_id, gift_id):
+    """특정 이벤트의 재고를 업데이트하는 작업 단위 (독립 함수)"""
+    if not _hub_scheduler:
+        logger.error("Scheduler instance is not initialized.")
+        return
+
+    session = get_session()
+    try:
+        today = datetime.now().date()
+        event = session.query(Event).filter_by(EventID=event_id).first()
+        
+        if not event:
+            logger.info(f"Event {event_id} not found. Removing job.")
+            _hub_scheduler.remove_job(event_id)
+            return
+
+        event_label = f"{event.Operator} : {event.EventName} ({event_id})"
+        logger.info(f"--- [Job] Updating {event_label} (Gift {gift_id}) ---")
+
+        if event.ProgressEndDate and event.ProgressEndDate < today:
+            logger.info(f"Event {event_label} has ended. Removing job.")
+            _hub_scheduler.remove_job(event_id)
+            return
+
+        collector_class = _hub_scheduler.collector_map.get(event.Operator, LotteCinemaCollector)
+        collector = collector_class(session)
+        collector.collect_target_inventory(event_id, gift_id)
+        
+    except Exception as e:
+        logger.error(f"Error in job for Event {event_id}: {e}")
+    finally:
+        session.close()
+    
+    # 다음 실행 시간 스케줄링
+    _hub_scheduler.schedule_single_event(event_id, gift_id)
+
+def main_discovery_task():
+    """활성 이벤트를 찾아 각각의 스케줄에 등록하는 메인 관리 작업 (독립 함수)"""
+    if not _hub_scheduler:
+        logger.error("Scheduler instance is not initialized.")
+        return
+
+    logger.info("=== Main Discovery Job Started ===")
+    session = get_session()
+    try:
+        for operator, collector_class in _hub_scheduler.collector_map.items():
+            try:
+                collector = collector_class(session)
+                collector.discover_new_events()
+            except Exception as e:
+                logger.error(f"Discovery failed for {operator}: {e}")
+        
+        today = datetime.now().date()
+        active_targets = session.query(Inventory.EventID, Inventory.GiftID).distinct().join(
+            Event, Event.EventID == Inventory.EventID
+        ).filter(
+            or_(Event.ProgressEndDate >= today, Event.ProgressEndDate == None)
+        ).all()
+
+        for event_id, gift_id in active_targets:
+            job_id = f"job_{event_id}"
+            existing_job = _hub_scheduler.scheduler.get_job(job_id)
+            
+            should_schedule = False
+            if not existing_job:
+                should_schedule = True
+            elif existing_job.next_run_time is None:
+                should_schedule = True
+            else:
+                # 다음 실행 시간이 과거인 경우 (misfire 되어 중단된 상태)
+                now = datetime.now(existing_job.next_run_time.tzinfo) if existing_job.next_run_time.tzinfo else datetime.now()
+                if existing_job.next_run_time < now:
+                    logger.info(f"Stale job detected: {job_id} (last scheduled for {existing_job.next_run_time}). Rescheduling...")
+                    should_schedule = True
+
+            if should_schedule:
+                total_stock = session.query(func.sum(Inventory.ItemCount)).filter_by(EventID=event_id, GiftID=gift_id).scalar() or 0
+                if total_stock > 0:
+                    try:
+                        event = session.query(Event).filter_by(EventID=event_id).first()
+                        event_label = f"{event.Operator} : {event.EventName} ({event_id})" if event else event_id
+                        logger.info(f"Registering/Rescheduling tracking job for {event_label}")
+                        _hub_scheduler.schedule_single_event(event_id, gift_id)
+                    except Exception as e:
+                        logger.error(f"Failed to register/reschedule job for {event_id}: {e}")
+                    
+    except Exception as e:
+        logger.error(f"Discovery job error: {e}")
+    finally:
+        session.close()
+
+# 싱글톤 인스턴스 생성
 _hub_scheduler = MovieHubScheduler()
 scheduler = _hub_scheduler 
 
 def start_scheduler():
-    _hub_scheduler.start()
+    if _hub_scheduler:
+        _hub_scheduler.start()
 
 def stop_scheduler():
-    _hub_scheduler.stop()
+    if _hub_scheduler:
+        _hub_scheduler.stop()

@@ -19,6 +19,7 @@ from src.collectors.cgv import CGVCollector
 from src.collectors.cineq import CineQCollector
 from src.services.event_service import EventService
 from src.utils.logger import get_logger
+from src.utils.config import settings
 
 logger = get_logger("WebApp")
 
@@ -78,27 +79,26 @@ def get_db():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 앱 시작 시 DB 초기화 (테이블 생성 및 마이그레이션)
-    logger.info("Initializing database...")
-    init_db()
-    
-    try:
-        logger.info("Running database migrations...")
-        run_migrations()
-    except Exception as e:
-        logger.error(f"Migration failed: {e}")
-    
     # Vercel(Serverless) 환경에서는 로컬 백그라운드 스케줄러를 시작하지 않습니다.
     # 대신 Vercel Cron Jobs를 사용합니다.
-    if os.getenv("VERCEL") != "1":
+    if not settings.is_vercel:
         logger.info("Starting local background scheduler...")
-        start_scheduler()
+        try:
+            start_scheduler()
+            logger.info("Local background scheduler started.")
+        except Exception as e:
+            logger.error(f"Failed to start local background scheduler: {e}", exc_info=True)
     else:
         logger.info("Vercel environment detected. Local scheduler disabled (using Vercel Cron).")
+    
     yield
-    if os.getenv("VERCEL") != "1":
+    
+    if not settings.is_vercel:
         logger.info("Stopping background scheduler...")
-        stop_scheduler()
+        try:
+            stop_scheduler()
+        except Exception as e:
+            logger.error(f"Failed to stop scheduler: {e}")
 
 app = FastAPI(lifespan=lifespan)
 

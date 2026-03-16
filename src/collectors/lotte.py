@@ -209,21 +209,23 @@ class LotteCinemaCollector(BaseCollector):
 
     def get_latest_event_id(self, year_yy=None):
         prefix = f"2010100169{year_yy}" if year_yy else "2010100169"
-        last_event = (
-            self.session.query(Event.EventID)
-            .filter(Event.EventID.like(f"{prefix}%"))
-            .order_by(Event.EventID.desc())
-            .first()
-        )
+        # 숫자로만 구성된 ID 중 가장 큰 것 찾기 (PostgreSQL regex)
+        query = self.session.query(Event.EventID).filter(
+            Event.EventID.like(f"{prefix}%"),
+            Event.EventID.op("~")("^[0-9]+$")
+        ).order_by(Event.EventID.desc())
+        
+        last_event = query.first()
         return last_event[0] if last_event else None
 
     def get_latest_gift_id(self):
-        last_gift = (
-            self.session.query(Event.GiftID)
-            .filter(Event.GiftID != None)
-            .order_by(Event.GiftID.desc())
-            .first()
-        )
+        # 숫자로만 구성된 ID 중 가장 큰 것 찾기 (PostgreSQL regex)
+        query = self.session.query(Event.GiftID).filter(
+            Event.GiftID != None,
+            Event.GiftID.op("~")("^[0-9]+$")
+        ).order_by(Event.GiftID.desc())
+        
+        last_gift = query.first()
         return last_gift[0] if last_gift else None
 
     def get_gift_id_search_limit(self):

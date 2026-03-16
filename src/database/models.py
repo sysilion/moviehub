@@ -54,6 +54,7 @@ class InventoryHistory(Base):
     RecordTime = Column(DateTime, default=datetime.now)
 
 _engine = None
+_Session = None
 
 def get_engine(db_url=None):
     global _engine
@@ -63,28 +64,29 @@ def get_engine(db_url=None):
     if not db_url:
         db_url = settings.final_db_url
     
-    # SQLite의 경우 멀티스레드 환경(FastAPI + Scheduler)에서 check_same_thread=False 필요
-    connect_args = {}
     if db_url.startswith('sqlite'):
         connect_args = {'check_same_thread': False}
+        _engine = create_engine(db_url, connect_args=connect_args)
     else:
-        # Postgres 등 외부 DB 사용 시 연결 풀 설정 보강
-        return create_engine(
+        # Postgres 등 외부 DB 사용 시 연결 풀 설정 보강 및 싱글톤 적용
+        _engine = create_engine(
             db_url,
-            pool_size=5,
-            max_overflow=10,
-            pool_recycle=3600,
+            pool_size=20,       # 기본 연결 수 확대
+            max_overflow=30,    # 필요 시 추가 허용 수
+            pool_recycle=1800,
             pool_pre_ping=True
         )
-
-    _engine = create_engine(db_url, connect_args=connect_args)
     return _engine
 
 def get_session(engine=None):
+    global _Session
     if not engine:
         engine = get_engine()
-    Session = sessionmaker(bind=engine)
-    return Session()
+    
+    if _Session is None:
+        _Session = sessionmaker(bind=engine)
+    
+    return _Session()
 
 def init_db(engine=None):
     if not engine:
@@ -97,11 +99,27 @@ def run_migrations():
     from alembic import command
     import os
     
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    ini_path = os.path.join(base_dir, "alembic.ini")
+    # 이 파일(src/database/models.py)의 위치를 기준으로 alembic.ini 경로 설정
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(os.path.dirname(current_dir))
+    ini_path = os.path.join(project_root, "alembic.ini")
     
     if os.path.exists(ini_path):
         alembic_cfg = Config(ini_path)
         # 런타임에 DB URL 명시적 설정
-        alembic_cfg.set_main_option("sqlalchemy.url", str(get_engine().url).replace('%', '%%'))
-        command.upgrade(alembic_cfg, "head")
+        db_url = str(get_engine().url).replace('%', '%%')
+        alembic_cfg.set_main_option("sqlalchemy.url", db_url)
+        # 버전 위치를 절대 경로로 명시
+        version_locations = os.path.join(project_root, "alembic", "versions")
+        alembic_cfg.set_main_option("version_locations", version_locations)
+        
+        try:
+            from src.utils.logger import get_logger
+            m_logger = get_logger("Migration")
+            m_logger.info(f"Applying Alembic migrations to {db_url}...")
+            command.upgrade(alembic_cfg, "head")
+            m_logger.info("Alembic migrations applied successfully.")
+        except Exception as e:
+            # print를 사용하여 uvicorn 로그와 별도로 확인 가능하도록 함
+            print(f"Migration Error: {e}")
+            raise
