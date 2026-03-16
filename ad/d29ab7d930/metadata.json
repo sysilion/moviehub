@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.4.9",
+  "checkpoint_id": "add29ab7d930",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "alembic/env.py",
+    "src/database/models.py",
+    "src/scheduler/main.py",
+    "src/web/app.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/ad/d29ab7d930/0/metadata.json",
+      "transcript": "/ad/d29ab7d930/0/full.jsonl",
+      "context": "/ad/d29ab7d930/0/context.md",
+      "content_hash": "/ad/d29ab7d930/0/content_hash.txt",
+      "prompt": "/ad/d29ab7d930/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 3280378,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 2760957,
+    "output_tokens": 12245,
+    "api_call_count": 59
+  }
+}
