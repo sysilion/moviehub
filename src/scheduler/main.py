@@ -80,16 +80,14 @@ class MovieHubScheduler:
         if self.scheduler.get_job(job_id):
             self.scheduler.remove_job(job_id)
 
-    def main_discovery_job(self):
-        """활성 이벤트를 찾아 각각의 스케줄에 등록하는 메인 관리 작업 (동적 주기 적용)"""
-        # 즉시 실행
-        self.scheduler.add_job(main_discovery_task, 'date', run_date=datetime.now(), id='main_discovery_immediate', replace_existing=True)
-
-        # 주기적 실행 예약
+    def schedule_next_discovery(self):
+        """다음 탐색 작업의 실행 시간을 예약합니다. (동적 주기 적용)"""
         now = datetime.now()
         if 9 <= now.hour < 18:
+            # 활동 시간: 10~15분 랜덤
             next_interval = random.randint(600, 900)
         else:
+            # 비활동 시간: 1~3시간 랜덤
             next_interval = random.randint(3600, 10800)
             
         run_time = datetime.now() + timedelta(seconds=next_interval)
@@ -120,8 +118,14 @@ class MovieHubScheduler:
             # 리스너 등록 (에러 로그 수집)
             self.scheduler.add_listener(self._job_listener, EVENT_JOB_ERROR)
             
-            # 초기 탐색 작업 등록
-            self.main_discovery_job()
+            # 초기 탐색 작업 등록 (즉시 실행)
+            self.scheduler.add_job(
+                main_discovery_task,
+                'date',
+                run_date=datetime.now(),
+                id='main_discovery_initial',
+                replace_existing=True
+            )
             
             self.scheduler.start()
             logger.info("Background scheduler started successfully.")
@@ -180,13 +184,15 @@ def main_discovery_task():
         logger.error("Scheduler instance is not initialized.")
         return
 
-    logger.info("=== Main Discovery Job Started ===")
+    logger.info("=== [Discovery] Main Discovery Job Started ===")
     session = get_session()
     try:
         for operator, collector_class in _hub_scheduler.collector_map.items():
             try:
+                logger.info(f"--- [Discovery] Starting discovery for {operator} ---")
                 collector = collector_class(session)
-                collector.discover_new_events()
+                count = collector.discover_new_events()
+                logger.info(f"--- [Discovery] Finished {operator}: found/updated {count} items ---")
             except Exception as e:
                 logger.error(f"Discovery failed for {operator}: {e}")
         
@@ -197,6 +203,8 @@ def main_discovery_task():
             or_(Event.ProgressEndDate >= today, Event.ProgressEndDate == None)
         ).all()
 
+        logger.info(f"=== [Discovery] Processing {len(active_targets)} active tracking targets ===")
+        
         for event_id, gift_id in active_targets:
             job_id = f"job_{event_id}"
             existing_job = _hub_scheduler.scheduler.get_job(job_id)
@@ -223,11 +231,16 @@ def main_discovery_task():
                         _hub_scheduler.schedule_single_event(event_id, gift_id)
                     except Exception as e:
                         logger.error(f"Failed to register/reschedule job for {event_id}: {e}")
-                    
+        
+        logger.info("=== [Discovery] Main Discovery Job Completed Successfully ===")
     except Exception as e:
         logger.error(f"Discovery job error: {e}")
     finally:
         session.close()
+    
+    # 다음 탐색 작업 예약
+    if _hub_scheduler:
+        _hub_scheduler.schedule_next_discovery()
 
 # 싱글톤 인스턴스 생성
 _hub_scheduler = MovieHubScheduler()

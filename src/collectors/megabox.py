@@ -26,19 +26,20 @@ class MegaboxCollector(BaseCollector):
     def __init__(self, session: Session):
         super().__init__(session)
 
-    def fetch_events(self, page=1):
+    def fetch_events(self, category="CED03", page=1):
         payload = {
             "currentPage": str(page),
             "recordCountPerPage": "100",
             "eventStatCd": "ONG",
-            "orderReqCd": "ONGlist"
+            "orderReqCd": "ONGlist",
+            "eventClasCd": category
         }
         try:
             response = requests.post(self.BASE_URL, data=payload, headers=self.HEADERS, timeout=10)
             response.raise_for_status()
             return response.text
         except Exception as e:
-            logger.error(f"Megabox fetch failed: {e}")
+            logger.error(f"Megabox fetch failed for {category}: {e}")
             return None
 
     def fetch_event_detail(self, event_id):
@@ -60,17 +61,26 @@ class MegaboxCollector(BaseCollector):
         
         def parse_date(date_str):
             if not date_str: return None
-            # "2025.01.01" 또는 "2025-01-01" 형식 대응
-            clean_date = date_str.replace(".", "-")[:10]
+            # "2025.01.01", "2025-01-01", "20250101" 형식 대응
+            clean_date = str(date_str).replace(".", "-")[:10]
             try:
-                return datetime.strptime(clean_date, "%Y-%m-%d").date()
+                if "-" in clean_date:
+                    return datetime.strptime(clean_date, "%Y-%m-%d").date()
+                else:
+                    return datetime.strptime(clean_date, "%Y%m%d").date()
             except (ValueError, TypeError):
                 return None
 
         event.EventName = event_data.get("EventName")
         event.ImageUrl = event_data.get("ImageUrl")
-        event.ProgressStartDate = parse_date(event_data.get("StartDate"))
-        event.ProgressEndDate = parse_date(event_data.get("EndDate"))
+        
+        new_start = parse_date(event_data.get("StartDate"))
+        if new_start:
+            event.ProgressStartDate = new_start
+            
+        new_end = parse_date(event_data.get("EndDate"))
+        if new_end:
+            event.ProgressEndDate = new_end
         
         self.session.commit()
         return event
@@ -80,37 +90,35 @@ class MegaboxCollector(BaseCollector):
 
     def discover_new_events(self):
         logger.info("Megabox auto-discovery (HTML Fragment Parsing) started...")
-        html = self.fetch_events()
-        if not html: return 0
-        
-        # 메가박스 HTML에서 data-no와 tit을 추출하는 가장 단순한 패턴
-        # data-no="(\d+)" ... <p class="tit">(.*?)</p>
-        import re
         import html as html_lib
         
-        # 1. 개별 리스트 아이템 분리 (<li> 단위)
-        items_raw = re.findall(r'<li[^>]*>(.*?)</li>', html, re.DOTALL)
+        categories = ["CED01", "CED02", "CED03", "CED04", "CED05"]
+        found_total = 0
         
-        found = 0
-        for item_html in items_raw:
-            # 2. data-no 추출
-            no_match = re.search(r'data-no="(\d+)"', item_html)
-            # 3. 제목 추출
-            tit_match = re.search(r'<p\s+class="tit"[^>]*>(.*?)</p>', item_html, re.DOTALL)
-            # 4. 이미지 추출
-            img_match = re.search(r'<img\s+src="([^"]+)"', item_html)
-            # 5. 날짜 추출
-            date_match = re.search(r'<p\s+class="date">([\d\.]+)\s*~\s*([\d\.]+)</p>', item_html)
+        for cat in categories:
+            html = self.fetch_events(category=cat)
+            if not html: continue
             
-            if no_match and tit_match:
-                event_id = no_match.group(1)
-                event = self.session.query(Event).filter_by(EventID=event_id).first()
+            # 1. 개별 리스트 아이템 분리 (<li> 단위)
+            items_raw = re.findall(r'<li[^>]*>(.*?)</li>', html, re.DOTALL)
+            
+            for item_html in items_raw:
+                # 2. data-no 추출
+                no_match = re.search(r'data-no="(\d+)"', item_html)
+                # 3. 제목 추출
+                tit_match = re.search(r'<p\s+class="tit"[^>]*>(.*?)</p>', item_html, re.DOTALL)
+                # 4. 이미지 추출
+                img_match = re.search(r'<img\s+src="([^"]+)"', item_html)
+                # 5. 날짜 추출 (멀티라인 및 공백 대응)
+                date_match = re.search(r'<p\s+class="date"[^>]*>\s*([\d\.]+)\s*~\s*([\d\.]+)\s*</p>', item_html, re.DOTALL)
                 
-                if not event:
+                if no_match and tit_match:
+                    event_id = no_match.group(1)
                     title = html_lib.unescape(tit_match.group(1).strip())
                     img = img_match.group(1) if img_match else ""
-                    start = date_match.group(1).replace(".", "-") if date_match else ""
-                    end = date_match.group(2).replace(".", "-") if date_match else ""
+                    # 날짜 정리 (공백 제거)
+                    start = date_match.group(1).replace(".", "-").strip() if date_match else ""
+                    end = date_match.group(2).replace(".", "-").strip() if date_match else ""
                     
                     data = {
                         "EventID": event_id,
@@ -119,8 +127,9 @@ class MegaboxCollector(BaseCollector):
                         "StartDate": start,
                         "EndDate": end
                     }
-                    self.save_event(data)
-                    found += 1
+                    
+                    if self.save_event(data):
+                        found_total += 1
                 
-        logger.info(f"Megabox discovery finished. Found {found} new events.")
-        return found
+        logger.info(f"Megabox discovery finished. Found {found_total} new/updated events.")
+        return found_total

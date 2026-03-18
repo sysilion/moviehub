@@ -108,15 +108,23 @@ class CGVCollector(BaseCollector):
             
         def parse_date(date_str):
             if not date_str: return None
-            # "2025.01.01" 또는 "2025-01-01" 형식 대응
-            clean_date = date_str.replace(".", "-")[:10]
+            # "2025.01.01", "2025-01-01", "20250101" 형식 대응
+            clean_date = str(date_str).replace(".", "-")[:10]
             try:
-                return datetime.strptime(clean_date, "%Y-%m-%d").date()
+                if "-" in clean_date:
+                    return datetime.strptime(clean_date, "%Y-%m-%d").date()
+                else:
+                    return datetime.strptime(clean_date, "%Y%m%d").date()
             except (ValueError, TypeError):
                 return None
 
-        event.ProgressStartDate = parse_date(event_data.get("evntStartYmd") or event_data.get("evntStartDt"))
-        event.ProgressEndDate = parse_date(event_data.get("evntEndYmd") or event_data.get("evntEndDt"))
+        new_start = parse_date(event_data.get("evntStartYmd") or event_data.get("evntStartDt"))
+        if new_start:
+            event.ProgressStartDate = new_start
+            
+        new_end = parse_date(event_data.get("evntEndYmd") or event_data.get("evntEndDt"))
+        if new_end:
+            event.ProgressEndDate = new_end
         
         self.session.commit()
         return event
@@ -177,6 +185,32 @@ class CGVCollector(BaseCollector):
             return True
         return False
 
+    def fetch_metadata(self, event_id: str):
+        """이벤트 상세 정보를 조회하여 가공된 데이터를 반환합니다."""
+        # 1. 일반 이벤트 상세 조회 시도
+        try:
+            url = f"https://event-mobile.cgv.co.kr/evt/evt/evtDtl/searchEvtDtl?coCd=A420&expoChnlCd=03&evntNo={event_id}"
+            data = self._signed_request(url)
+            if data and "data" in data and data["data"]:
+                return data["data"]
+        except Exception:
+            pass
+            
+        # 2. SAPRM(굿즈) 이벤트 상세 조회 시도
+        try:
+            # SAPRM은 리스트에서 정보를 가져와야 함 (상세 API가 따로 없거나 구조가 다름)
+            # 여기서는 리스트를 뒤져서 찾음
+            url = f"{self.SAPRM_URL}/searchSaprmEvtListForPage?coCd=A420&expoChnlCd=03&startRow=0&listCount=100"
+            data = self._signed_request(url)
+            if data and "data" in data and "list" in data["data"]:
+                for item in data["data"]["list"]:
+                    if str(item.get("saprmEvntNo")) == event_id:
+                        return item
+        except Exception:
+            pass
+            
+        return None
+
     def discover_new_events(self):
         logger.info("CGV comprehensive discovery started...")
         found = 0
@@ -186,8 +220,8 @@ class CGVCollector(BaseCollector):
             gen_data = self.fetch_events()
             if gen_data and "data" in gen_data and "list" in gen_data["data"]:
                 for item in gen_data["data"]["list"]:
-                    if not self.session.query(Event).filter_by(EventID=str(item.get("evntNo"))).first():
-                        self.save_event(item)
+                    # 기존 여부와 상관없이 정보 갱신을 위해 save_event 호출
+                    if self.save_event(item):
                         found += 1
         except Exception as e: logger.error(f"CGV General discovery failed: {e}")
 
@@ -208,9 +242,14 @@ class CGVCollector(BaseCollector):
                             # 재고 수집 즉시 실행
                             self.collect_target_inventory(e_id, g_id)
                             found += 1
-                        elif not event:
+                        else:
+                            # 굿즈 ID 없어도 정보 업데이트
                             self.save_event(item)
                             found += 1
+                    else:
+                        # 이미 굿즈 ID가 있어도 정보 업데이트
+                        self.save_event(item)
+                        found += 1
         except Exception as e: logger.error(f"CGV Special discovery failed: {e}")
         
         logger.info(f"CGV discovery finished. Found {found} new/updated items.")

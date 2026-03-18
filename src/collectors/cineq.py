@@ -23,10 +23,10 @@ class CineQCollector(BaseCollector):
     def __init__(self, session: Session):
         super().__init__(session)
 
-    def fetch_events(self, page=1):
+    def fetch_events(self, last_id="0"):
         # 씨네Q는 eventId=0으로 시작하여 더보기 방식으로 호출함
         payload = {
-            "eventId": "0",
+            "eventId": last_id,
             "eventSort": "-1" # 최신순
         }
         try:
@@ -57,17 +57,31 @@ class CineQCollector(BaseCollector):
         
         def parse_date(date_str):
             if not date_str: return None
-            # "2025.01.01" 또는 "2025-01-01" 형식 대응
-            clean_date = date_str.replace(".", "-")[:10]
+            # "2025.01.01", "2025-01-01", "20250101" 형식 대응
+            clean_date = str(date_str).replace(".", "-")[:10]
             try:
-                return datetime.strptime(clean_date, "%Y-%m-%d").date()
+                if "-" in clean_date:
+                    return datetime.strptime(clean_date, "%Y-%m-%d").date()
+                else:
+                    return datetime.strptime(clean_date, "%Y%m%d").date()
             except (ValueError, TypeError):
                 return None
 
         event.EventName = event_data.get("Title")
-        event.ProgressStartDate = parse_date(event_data.get("StartDate"))
-        event.ProgressEndDate = parse_date(event_data.get("EndDate"))
-        event.ImageUrl = "https://www.cineq.co.kr" + event_data.get("ImgUrl", "")
+        
+        # Duration 필드에서 날짜 추출 (형식: "2026.02.04~2026.03.29")
+        duration = event_data.get("Duration", "")
+        if duration and "~" in duration:
+            parts = duration.split("~")
+            new_start = parse_date(parts[0].strip())
+            if new_start:
+                event.ProgressStartDate = new_start
+            
+            new_end = parse_date(parts[1].strip())
+            if new_end:
+                event.ProgressEndDate = new_end
+        
+        event.ImageUrl = event_data.get("Thumb", "") # CineQ는 Thumb 필드에 풀 경로가 포함됨
         
         self.session.commit()
         return event
@@ -77,23 +91,24 @@ class CineQCollector(BaseCollector):
 
     def discover_new_events(self):
         logger.info("CineQ auto-discovery started...")
-        data = self.fetch_events()
-        if not data: return 0
+        found_total = 0
+        last_id = "0"
         
-        # 씨네Q 응답은 리스트 형태이거나 'List' 필드에 담겨올 수 있음
-        items = data if isinstance(data, list) else data.get("List", [])
-        if not items:
-            logger.info("CineQ no events found.")
-            return 0
+        # 최대 3페이지까지 탐색
+        for _ in range(3):
+            data = self.fetch_events(last_id=last_id)
+            if not data: break
             
-        found = 0
-        for item in items:
-            event_id = str(item.get("EventId"))
-            if not event_id: continue
-            
-            event = self.session.query(Event).filter_by(EventID=event_id).first()
-            if not event:
-                self.save_event(item)
-                found += 1
-        logger.info(f"CineQ discovery finished. Found {found} new events.")
-        return found
+            items = data if isinstance(data, list) else data.get("List", [])
+            if not items: break
+                
+            for item in items:
+                event_id = str(item.get("EventId"))
+                if not event_id: continue
+                
+                if self.save_event(item):
+                    found_total += 1
+                last_id = event_id
+                
+        logger.info(f"CineQ discovery finished. Found {found_total} new/updated events.")
+        return found_total

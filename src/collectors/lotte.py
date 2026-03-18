@@ -96,17 +96,28 @@ class LotteCinemaCollector(BaseCollector):
         
         def parse_date(date_str):
             if not date_str: return None
+            # "2025.01.01" 또는 "2025-01-01" 형식 대응
+            clean_date = str(date_str).replace(".", "-")[:10]
             try:
-                # "2025-01-01" 형식을 처리
-                return datetime.strptime(date_str[:10], "%Y-%m-%d").date()
+                if "-" in clean_date:
+                    return datetime.strptime(clean_date, "%Y-%m-%d").date()
+                else:
+                    return datetime.strptime(clean_date, "%Y%m%d").date()
             except (ValueError, TypeError):
                 return None
 
         event.EventName = event_data.get("EventName")
-        event.ProgressStartDate = parse_date(event_data.get("ProgressStartDate") or event_data.get("EventStartDate"))
-        event.ProgressEndDate = parse_date(event_data.get("ProgressEndDate") or event_data.get("EventEndDate"))
-        event.ImageUrl = event_data.get("ListImgUrl") or event.ImageUrl
-        event.DetailImageUrl = event_data.get("ImgUrl") or event.DetailImageUrl
+        
+        new_start = parse_date(event_data.get("ProgressStartDate") or event_data.get("EventStartDate") or event_data.get("StartDate"))
+        if new_start:
+            event.ProgressStartDate = new_start
+            
+        new_end = parse_date(event_data.get("ProgressEndDate") or event_data.get("EventEndDate") or event_data.get("EndDate"))
+        if new_end:
+            event.ProgressEndDate = new_end
+            
+        event.ImageUrl = event_data.get("ListImgUrl") or event_data.get("ImageUrl") or event.ImageUrl
+        event.DetailImageUrl = event_data.get("ImgUrl") or event_data.get("DetailImageUrl") or event.DetailImageUrl
         self.session.commit()
         return event
 
@@ -236,16 +247,15 @@ class LotteCinemaCollector(BaseCollector):
 
     def discover_new_events(self):
         logger.info("Auto-discovery Part 1: Fetching current events from Lotte Cinema API...")
-        for page in [1, 2, 3]:
+        found_total = 0
+        for page in [1, 2, 3, 4, 5]:
             try:
                 data = self.fetch_events(page=page)
                 if data and "Items" in data:
                     for item in data["Items"]:
-                        event_id = str(item.get("EventID"))
-                        event = self.session.query(Event).filter_by(EventID=event_id).first()
-                        if not event:
-                            logger.info(f"Adding new event from list: {event_id} - {item.get('EventName')}")
-                            self.save_event(item, gift_id=None)
+                        # 기존 여부와 상관없이 정보 갱신을 위해 save_event 호출
+                        if self.save_event(item, gift_id=None):
+                            found_total += 1
             except Exception as e:
                 logger.error(f"Error processing event list on page {page}: {e}")
 
@@ -270,7 +280,6 @@ class LotteCinemaCollector(BaseCollector):
         max_events_to_check = 20
         max_gifts_to_check = 50
         current_gift_cursor = start_gift_num
-        found_new = 0
 
         for i in range(max_events_to_check):
             event_id = str(start_event_num + i)
@@ -291,9 +300,10 @@ class LotteCinemaCollector(BaseCollector):
                     self.save_inventory(event_id, gift_id, inv)
                     notifier.send_message(f"🎯 <b>새로운 굿즈 번호 매칭!</b>\n{event_info.get('EventName')}\nEvent: {event_id}, Gift: {gift_id}")
                     current_gift_cursor = int(gift_id)
-                    found_new += 1
+                    found_total += 1
                     break
-
+        
+        return found_total
     def match_missing_gift_id(self, event_id):
         used_gift_ids = set()
         results = self.session.query(Event.GiftID).filter(Event.GiftID != None).all()
