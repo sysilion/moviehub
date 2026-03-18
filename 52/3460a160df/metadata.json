@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.9",
+  "checkpoint_id": "523460a160df",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 4,
+  "files_touched": [
+    "src/collectors/cgv.py",
+    "src/collectors/cineq.py",
+    "src/collectors/lotte.py",
+    "src/collectors/megabox.py",
+    "src/scheduler/main.py",
+    "src/web/templates/detail.html",
+    "src/web/templates/index.html"
+  ],
+  "sessions": [
+    {
+      "metadata": "/52/3460a160df/0/metadata.json",
+      "transcript": "/52/3460a160df/0/full.jsonl",
+      "context": "/52/3460a160df/0/context.md",
+      "content_hash": "/52/3460a160df/0/content_hash.txt",
+      "prompt": "/52/3460a160df/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 33936125,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 30205476,
+    "output_tokens": 70432,
+    "api_call_count": 224
+  }
+}

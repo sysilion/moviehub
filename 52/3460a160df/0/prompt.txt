@@ -1,0 +1,457 @@
+현재 코드를 vercel 로 마이그레이션 하면서 로컬에서 실행시 정상적인 백그라운드 동작이 안되고있는것 같아 (apscheduler 동작안함). 관련 내용 분석해서 로컬에서 실행했을땐 스케쥴러가 동작하도록 수정해줘.
+
+---
+
+❯ .venv/bin/python main.py
+WARNING:	uvicorn.error.Notifier - Telegram Bot Token or Chat ID not configured.
+INFO:	uvicorn.error.Main - Starting MovieHub Web & Scheduler Service...
+INFO:     Started server process [79814]
+INFO:     Waiting for application startup.
+INFO:     Initializing database...
+INFO:     Running database migrations...
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+WARNI [apscheduler.executors.default] Run time of job "update_event_inventory_task (trigger: date[2026-03-14 05:24:33 KST], next run at: 2026-03-14 05:24:33 KST)" was missed by 2 days, 4:06:43.160061
+
+스케쥴링이 안되는거같은데
+
+---
+
+아예 스케쥴러가 안켜진거같은데?
+
+❯ .venv/bin/python main.py
+WARNING:	uvicorn.error.Notifier - Telegram Bot Token or Chat ID not configured.
+INFO:	uvicorn.error.Main - Starting MovieHub Web & Scheduler Service...
+INFO:     Started server process [4138]
+INFO:     Waiting for application startup.
+INFO:     Initializing database...
+INFO:     Running database migrations...
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+
+---
+
+❯ .venv/bin/python main.py
+WARNING:	uvicorn.error.Notifier - Telegram Bot Token or Chat ID not configured.
+INFO:	uvicorn.error.Main - Starting MovieHub Web & Scheduler Service...
+INFO:     Started server process [15133]
+INFO:     Waiting for application startup.
+INFO:     Initializing database...
+INFO:     Running database migrations...
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+
+
+
+동일해 로컬에서 스케쥴러가 실행이 안돼
+
+---
+
+로컬 데이터가 어디에 있는지 확인해봐. vercel 마이그레이션 전에는 sqlite 였던걸로 기억해.
+
+만약 sqlite 로 되어있다면 로컬 postgresql 로 마이그레이션해줘
+
+---
+
+❯ .venv/bin/python main.py
+WARNING:	uvicorn.error.Notifier - Telegram Bot Token or Chat ID not configured.
+INFO:	uvicorn.error.Main - Initializing MovieHub Service...
+INFO:	uvicorn.error.Main - Initializing database schema...
+INFO:	uvicorn.error.Main - Running database migrations...
+INFO:	uvicorn.error.Migration - Applying Alembic migrations to postgresql:///moviehub...
+INFO:	uvicorn.error.Migration - Alembic migrations applied successfully.
+INFO:	uvicorn.error.Main - Database initialization complete.
+INFO:	uvicorn.error.Main - Starting MovieHub Web & Scheduler Service...
+INFO:     Started server process [23050]
+INFO:     Waiting for application startup.
+INFO:     Starting local background scheduler...
+INFO:     Persistent SQLAlchemyJobStore added to scheduler.
+INFO:     Next Discovery Job scheduled at 15:11:35 (in 773s)
+INFO:     Background scheduler started successfully.
+INFO:     Local background scheduler started.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     --- [Job] Updating LOTTE : <왕사남>7주차 증정이벤트 (201010016926235) (Gift 14119) ---
+INFO:     --- [Job] Updating LOTTE : <스폰지밥 무비>2주차 주말증정이벤트 (201010016926028) (Gift 13746) ---
+INFO:     --- [Job] Updating LOTTE : 아카데미 굿즈 전산 <원배틀> 무티 (201010016926146) (Gift 13994) ---
+INFO:     --- [Job] Updating LOTTE : <시라트>스페셜상영회만증정(2/3화,반다나) (201010016926090) (Gift 13878) ---
+INFO:     --- [Job] Updating LOTTE : 프리파라 렛츠고 프리파리 재고 전산 등록 (201010016926051) (Gift 13786) ---
+INFO:     Updated 1 active inventory items for LOTTE : <시라트>스페셜상영회만증정(2/3화,반다나) (201010016926090)
+INFO:     Updated 1 active inventory items for LOTTE : 프리파라 렛츠고 프리파리 재고 전산 등록 (201010016926051)
+INFO:     Updated 9 active inventory items for LOTTE : <왕사남>7주차 증정이벤트 (201010016926235)
+INFO:     Updated 15 active inventory items for LOTTE : <스폰지밥 무비>2주차 주말증정이벤트 (201010016926028)
+INFO:     Updated 18 active inventory items for LOTTE : 아카데미 굿즈 전산 <원배틀> 무티 (201010016926146)
+INFO:     Scheduled next update for LOTTE : <시라트>스페셜상영회만증정(2/3화,반다나) (201010016926090) at 15:04:34 (in 352s)
+INFO:     Scheduled next update for LOTTE : 프리파라 렛츠고 프리파리 재고 전산 등록 (201010016926051) at 15:07:30 (in 528s)
+INFO:     Scheduled next update for LOTTE : <왕사남>7주차 증정이벤트 (201010016926235) at 15:05:20 (in 398s)
+INFO:     --- [Job] Updating LOTTE : <대디오>1주차 증정이벤트  (201010016926081) (Gift 13863) ---
+INFO:     Scheduled next update for LOTTE : <스폰지밥 무비>2주차 주말증정이벤트 (201010016926028) at 15:06:59 (in 497s)
+INFO:     --- [Job] Updating LOTTE : <시스터>무대인사(2/7토,엽서세트) (201010016926114) (Gift 13944) ---
+INFO:     Scheduled next update for LOTTE : 아카데미 굿즈 전산 <원배틀> 무티 (201010016926146) at 15:04:18 (in 336s)
+INFO:     --- [Job] Updating LOTTE : <이터널 선샤인> 시네아카이브 2/8 전산 (201010016926117) (Gift 13947) ---
+INFO:     --- [Job] Updating LOTTE : <극장의 시간들>스페셜상영회(3/22일,뱃지,회차당수령제한O) (201010016926230) (Gift 14113) ---
+INFO:     --- [Job] Updating LOTTE : <왕사남>6주차 증정이벤트 (201010016926215) (Gift 14091) ---
+INFO:     Updated 6 active inventory items for LOTTE : <이터널 선샤인> 시네아카이브 2/8 전산 (201010016926117)
+INFO:     Updated 3 active inventory items for LOTTE : <시스터>무대인사(2/7토,엽서세트) (201010016926114)
+INFO:     Updated 5 active inventory items for LOTTE : <대디오>1주차 증정이벤트  (201010016926081)
+INFO:     Scheduled next update for LOTTE : <이터널 선샤인> 시네아카이브 2/8 전산 (201010016926117) at 15:08:15 (in 573s)
+INFO:     Updated 1 active inventory items for LOTTE : <극장의 시간들>스페셜상영회(3/22일,뱃지,회차당수령제한O) (201010016926230)
+INFO:     Scheduled next update for LOTTE : <시스터>무대인사(2/7토,엽서세트) (201010016926114) at 15:08:40 (in 598s)
+INFO:     Updated 6 active inventory items for LOTTE : <왕사남>6주차 증정이벤트 (201010016926215)
+INFO:     Scheduled next update for LOTTE : <대디오>1주차 증정이벤트  (201010016926081) at 15:04:42 (in 360s)
+INFO:     --- [Job] Updating LOTTE : <라스베가스를 떠나며> 1주차 증정이벤트 (201010016926008) (Gift 13721) ---
+INFO:     --- [Job] Updating LOTTE : <리틀 아멜리> 아카데미 기획전 포스터 증정 (201010016926162) (Gift 14022) ---
+INFO:     Scheduled next update for LOTTE : <극장의 시간들>스페셜상영회(3/22일,뱃지,회차당수령제한O) (201010016926230) at 15:03:51 (in 309s)
+INFO:     --- [Job] Updating LOTTE : <오늘 밤~>3주차 증정이벤트 (주중) (201010016926017) (Gift 13731) ---
+INFO:     Scheduled next update for LOTTE : <왕사남>6주차 증정이벤트 (201010016926215) at 15:05:42 (in 420s)
+INFO:     --- [Job] Updating LOTTE : <우주수호대>1주차증정이벤트 (201010016926226) (Gift 14109) ---
+INFO:     --- [Job] Updating LOTTE : <프로젝트Y>시그니처 아트카드 (201010016926054) (Gift 13789) ---
+INFO:     Updated 14 active inventory items for LOTTE : <라스베가스를 떠나며> 1주차 증정이벤트 (201010016926008)
+INFO:     Scheduled next update for LOTTE : <라스베가스를 떠나며> 1주차 증정이벤트 (201010016926008) at 15:07:13 (in 511s)
+INFO:     Updated 17 active inventory items for LOTTE : <오늘 밤~>3주차 증정이벤트 (주중) (201010016926017)
+INFO:     --- [Job] Updating LOTTE : <마이 선샤인>무비티켓 (201010016925863) (Gift 13707) ---
+INFO:     Updated 25 active inventory items for LOTTE : <리틀 아멜리> 아카데미 기획전 포스터 증정 (201010016926162)
+INFO:     Updated 37 active inventory items for LOTTE : <프로젝트Y>시그니처 아트카드 (201010016926054)
+INFO:     Scheduled next update for LOTTE : <오늘 밤~>3주차 증정이벤트 (주중) (201010016926017) at 15:03:58 (in 315s)
+INFO:     Scheduled next update for LOTTE : <리틀 아멜리> 아카데미 기획전 포스터 증정 (201010016926162) at 15:07:21 (in 518s)
+INFO:     --- [Job] Updating LOTTE : <화양연화 특별판>2주차 증정이벤트 (201010016926016) (Gift 13730) ---
+INFO:     Scheduled next update for LOTTE : <프로젝트Y>시그니처 아트카드 (201010016926054) at 15:06:41 (in 478s)
+INFO:     --- [Job] Updating LOTTE : <얼음 여왕> 1주차 증정이벤트 (201010016926077) (Gift 13855) ---
+INFO:     --- [Job] Updating LOTTE : <하나 그리고 둘>2주차 증정이벤트 (201010016926014) (Gift 13728) ---
+INFO:     Updated 64 active inventory items for LOTTE : <우주수호대>1주차증정이벤트 (201010016926226)
+INFO:     Scheduled next update for LOTTE : <우주수호대>1주차증정이벤트 (201010016926226) at 15:05:48 (in 425s)
+INFO:     --- [Job] Updating LOTTE : <굿 윌 헌팅> 시네 아카이브 전산 (201010016926212) (Gift 14080) ---
+INFO:     Updated 6 active inventory items for LOTTE : <화양연화 특별판>2주차 증정이벤트 (201010016926016)
+INFO:     Updated 4 active inventory items for LOTTE : <하나 그리고 둘>2주차 증정이벤트 (201010016926014)
+INFO:     Updated 35 active inventory items for LOTTE : <마이 선샤인>무비티켓 (201010016925863)
+INFO:     Scheduled next update for LOTTE : <하나 그리고 둘>2주차 증정이벤트 (201010016926014) at 15:07:10 (in 507s)
+INFO:     Scheduled next update for LOTTE : <화양연화 특별판>2주차 증정이벤트 (201010016926016) at 15:05:42 (in 419s)
+INFO:     Updated 11 active inventory items for LOTTE : <굿 윌 헌팅> 시네 아카이브 전산 (201010016926212)
+INFO:     Scheduled next update for LOTTE : <마이 선샤인>무비티켓 (201010016925863) at 15:08:10 (in 567s)
+INFO:     --- [Job] Updating LOTTE : <마이 선샤인>3주차 증정이벤트 (201010016926062) (Gift 13817) ---
+INFO:     --- [Job] Updating LOTTE : <폭풍의언덕>2주차 현장증정이벤트 (201010016926151) (Gift 14010) ---
+INFO:     Updated 44 active inventory items for LOTTE : <얼음 여왕> 1주차 증정이벤트 (201010016926077)
+INFO:     Scheduled next update for LOTTE : <굿 윌 헌팅> 시네 아카이브 전산 (201010016926212) at 15:07:53 (in 550s)
+INFO:     --- [Job] Updating LOTTE : <초속 5센티미터>1주차 증정이벤트 (201010016926171) (Gift 14032) ---
+INFO:     Scheduled next update for LOTTE : <얼음 여왕> 1주차 증정이벤트 (201010016926077) at 15:08:03 (in 560s)
+INFO:     --- [Job] Updating LOTTE : <슈퍼 해피 포에버>스페셜상영회(1/2)_굿즈연동용 (201010016925849) (Gift 13681) ---
+INFO:     --- [Job] Updating LOTTE : <오세이사>2주차 증정이벤트 (201010016925852) (Gift 13687) ---
+INFO:     Updated 30 active inventory items for LOTTE : <폭풍의언덕>2주차 현장증정이벤트 (201010016926151)
+INFO:     Updated 5 active inventory items for LOTTE : <초속 5센티미터>1주차 증정이벤트 (201010016926171)
+INFO:     Updated 2 active inventory items for LOTTE : <슈퍼 해피 포에버>스페셜상영회(1/2)_굿즈연동용 (201010016925849)
+INFO:     Scheduled next update for LOTTE : <폭풍의언덕>2주차 현장증정이벤트 (201010016926151) at 15:06:21 (in 458s)
+INFO:     Scheduled next update for LOTTE : <초속 5센티미터>1주차 증정이벤트 (201010016926171) at 15:05:23 (in 400s)
+INFO:     Scheduled next update for LOTTE : <슈퍼 해피 포에버>스페셜상영회(1/2)_굿즈연동용 (201010016925849) at 15:08:24 (in 581s)
+INFO:     --- [Job] Updating LOTTE : <주술회전>6주차 주말증정이벤트 (201010016926029) (Gift 13747) ---
+INFO:     --- [Job] Updating LOTTE : <블루 아카이브 : 디 오케스트라 인 시네마> 앵콜 클래핑 상영회 (201010016925839) (Gift 13671) ---
+INFO:     --- [Job] Updating LOTTE : <아르코> 아카데미 기획전 포스터 증정 (201010016926198) (Gift 14061) ---
+INFO:     Updated 7 active inventory items for LOTTE : <마이 선샤인>3주차 증정이벤트 (201010016926062)
+INFO:     Updated 11 active inventory items for LOTTE : <오세이사>2주차 증정이벤트 (201010016925852)
+INFO:     Scheduled next update for LOTTE : <마이 선샤인>3주차 증정이벤트 (201010016926062) at 15:08:22 (in 579s)
+INFO:     Scheduled next update for LOTTE : <오세이사>2주차 증정이벤트 (201010016925852) at 15:06:30 (in 467s)
+INFO:     --- [Job] Updating LOTTE : <슈퍼 해피 포에버>1주차 주말증정이벤트 (201010016925842) (Gift 13675) ---
+INFO:     --- [Job] Updating LOTTE : 아카데미 굿즈 전산 <씨너스> 무티 (201010016926147) (Gift 13995) ---
+INFO:     Updated 4 active inventory items for LOTTE : <블루 아카이브 : 디 오케스트라 인 시네마> 앵콜 클래핑 상영회 (201010016925839)
+INFO:     Updated 1 active inventory items for LOTTE : <주술회전>6주차 주말증정이벤트 (201010016926029)
+INFO:     Scheduled next update for LOTTE : <블루 아카이브 : 디 오케스트라 인 시네마> 앵콜 클래핑 상영회 (201010016925839) at 15:05:17 (in 394s)
+INFO:     Updated 21 active inventory items for LOTTE : <아르코> 아카데미 기획전 포스터 증정 (201010016926198)
+INFO:     --- [Job] Updating LOTTE : <하트맨>시그니처 아트카드 증정이벤트 (201010016926027) (Gift 13744) ---
+INFO:     Scheduled next update for LOTTE : <주술회전>6주차 주말증정이벤트 (201010016926029) at 15:06:46 (in 483s)
+INFO:     Updated 15 active inventory items for LOTTE : 아카데미 굿즈 전산 <씨너스> 무티 (201010016926147)
+INFO:     Updated 7 active inventory items for LOTTE : <슈퍼 해피 포에버>1주차 주말증정이벤트 (201010016925842)
+INFO:     Scheduled next update for LOTTE : <아르코> 아카데미 기획전 포스터 증정 (201010016926198) at 15:08:26 (in 583s)
+INFO:     --- [Job] Updating LOTTE : <아기티라노디보>1주차 증정이벤트 (201010016926174) (Gift 14038) ---
+INFO:     Scheduled next update for LOTTE : 아카데미 굿즈 전산 <씨너스> 무티 (201010016926147) at 15:07:34 (in 531s)
+INFO:     --- [Job] Updating LOTTE : <만약에 우리>스페셜상영회(1/16금) (201010016926032) (Gift 13761) ---
+INFO:     Scheduled next update for LOTTE : <슈퍼 해피 포에버>1주차 주말증정이벤트 (201010016925842) at 15:08:31 (in 588s)
+INFO:     --- [Job] Updating LOTTE : <프리파라>2주차 증정이벤트 (201010016926136) (Gift 13965) ---
+INFO:     --- [Job] Updating LOTTE : <짱구는 못말려>5주차 증정이벤트 (201010016926060) (Gift 13815) ---
+INFO:     Updated 3 active inventory items for LOTTE : <만약에 우리>스페셜상영회(1/16금) (201010016926032)
+INFO:     Updated 45 active inventory items for LOTTE : <하트맨>시그니처 아트카드 증정이벤트 (201010016926027)
+INFO:     Scheduled next update for LOTTE : <만약에 우리>스페셜상영회(1/16금) (201010016926032) at 15:07:52 (in 549s)
+INFO:     --- [Job] Updating LOTTE : <천공의 성 라퓨타>2주차 주말증정이벤트 (201010016926091) (Gift 13879) ---
+INFO:     Updated 17 active inventory items for LOTTE : <아기티라노디보>1주차 증정이벤트 (201010016926174)
+INFO:     Scheduled next update for LOTTE : <하트맨>시그니처 아트카드 증정이벤트 (201010016926027) at 15:06:40 (in 477s)
+INFO:     Updated 18 active inventory items for LOTTE : <짱구는 못말려>5주차 증정이벤트 (201010016926060)
+INFO:     Updated 32 active inventory items for LOTTE : <프리파라>2주차 증정이벤트 (201010016926136)
+INFO:     --- [Job] Updating LOTTE : 올스타 셀렉션 굿즈 수량 등록 (201010016926001) (Gift 13708) ---
+INFO:     Scheduled next update for LOTTE : <아기티라노디보>1주차 증정이벤트 (201010016926174) at 15:05:31 (in 408s)
+INFO:     Scheduled next update for LOTTE : <짱구는 못말려>5주차 증정이벤트 (201010016926060) at 15:04:42 (in 359s)
+INFO:     --- [Job] Updating LOTTE : <물의 연대기>1주차 증정이벤트 (201010016926084) (Gift 13866) ---
+INFO:     --- [Job] Updating LOTTE : <시라트>광음스페셜상영회(1/25일,광음시네마포스터) (201010016926071) (Gift 13836) ---
+INFO:     Scheduled next update for LOTTE : <프리파라>2주차 증정이벤트 (201010016926136) at 15:08:23 (in 580s)
+INFO:     --- [Job] Updating LOTTE : <천공의 성 라퓨타> 광음시네마 특전 2주차 (201010014726004) (Gift 13869) ---
+INFO:     Updated 1 active inventory items for LOTTE : 올스타 셀렉션 굿즈 수량 등록 (201010016926001)
+INFO:     Updated 6 active inventory items for LOTTE : <천공의 성 라퓨타>2주차 주말증정이벤트 (201010016926091)
+INFO:     Updated 2 active inventory items for LOTTE : <시라트>광음스페셜상영회(1/25일,광음시네마포스터) (201010016926071)
+INFO:     Scheduled next update for LOTTE : 올스타 셀렉션 굿즈 수량 등록 (201010016926001) at 15:05:24 (in 401s)
+INFO:     Scheduled next update for LOTTE : <천공의 성 라퓨타>2주차 주말증정이벤트 (201010016926091) at 15:07:58 (in 555s)
+INFO:     Updated 9 active inventory items for LOTTE : <물의 연대기>1주차 증정이벤트 (201010016926084)
+INFO:     --- [Job] Updating LOTTE : <겨울의 빛>1주차 증정이벤트 (201010016926113) (Gift 13943) ---
+INFO:     Scheduled next update for LOTTE : <시라트>광음스페셜상영회(1/25일,광음시네마포스터) (201010016926071) at 15:04:53 (in 370s)
+INFO:     --- [Job] Updating LOTTE : <천공의 성 라퓨타>3주차(2/4수~10화,라퓨타포스터) (201010016926105) (Gift 13926) ---
+INFO:     Scheduled next update for LOTTE : <천공의 성 라퓨타> 광음시네마 특전 2주차 (201010014726004) at 15:04:13 (in 330s)
+INFO:     --- [Job] Updating LOTTE : <초속5센티미터>2주차 주중 이벤트 (201010016926208) (Gift 14072) ---
+INFO:     Scheduled next update for LOTTE : <물의 연대기>1주차 증정이벤트 (201010016926084) at 15:04:21 (in 338s)
+INFO:     --- [Job] Updating LOTTE : <천공의 성 라퓨타>4주차이벤트 (201010016926137) (Gift 13966) ---
+INFO:     --- [Job] Updating LOTTE : <센티멘탈 밸류>4주차 증정이벤트 (201010016926225) (Gift 14108) ---
+INFO:     Updated 4 active inventory items for LOTTE : <천공의 성 라퓨타>3주차(2/4수~10화,라퓨타포스터) (201010016926105)
+INFO:     Scheduled next update for LOTTE : <천공의 성 라퓨타>3주차(2/4수~10화,라퓨타포스터) (201010016926105) at 15:07:43 (in 540s)
+INFO:     Updated 3 active inventory items for LOTTE : <천공의 성 라퓨타>4주차이벤트 (201010016926137)
+INFO:     --- [Job] Updating LOTTE : <센티멘탈밸류>스페셜상영회(2/21토,머그컵) (201010016926164) (Gift 14024) ---
+INFO:     Updated 5 active inventory items for LOTTE : <겨울의 빛>1주차 증정이벤트 (201010016926113)
+INFO:     Updated 13 active inventory items for LOTTE : <센티멘탈 밸류>4주차 증정이벤트 (201010016926225)
+INFO:     Updated 19 active inventory items for LOTTE : <초속5센티미터>2주차 주중 이벤트 (201010016926208)
+INFO:     Scheduled next update for LOTTE : <천공의 성 라퓨타>4주차이벤트 (201010016926137) at 15:06:28 (in 465s)
+INFO:     Scheduled next update for LOTTE : <겨울의 빛>1주차 증정이벤트 (201010016926113) at 15:06:30 (in 467s)
+INFO:     Scheduled next update for LOTTE : <센티멘탈 밸류>4주차 증정이벤트 (201010016926225) at 15:08:37 (in 594s)
+INFO:     --- [Job] Updating LOTTE : <짱구는못말려>6주차 증정이벤트 (201010016926086) (Gift 13868) ---
+INFO:     Scheduled next update for LOTTE : <초속5센티미터>2주차 주중 이벤트 (201010016926208) at 15:07:51 (in 548s)
+INFO:     --- [Job] Updating LOTTE : <렌탈패밀리>3주차 증정이벤트 (201010016926227) (Gift 14110) ---
+INFO:     --- [Job] Updating LOTTE : 프리즘 투어즈 재고 등록 (201010016926022) (Gift 13738) ---
+INFO:     --- [Job] Updating LOTTE : <시스터>2주차 주말 증정이벤트 (201010016926119) (Gift 13948) ---
+INFO:     Updated 1 active inventory items for LOTTE : <센티멘탈밸류>스페셜상영회(2/21토,머그컵) (201010016926164)
+INFO:     Scheduled next update for LOTTE : <센티멘탈밸류>스페셜상영회(2/21토,머그컵) (201010016926164) at 15:06:51 (in 488s)
+INFO:     Updated 2 active inventory items for LOTTE : <짱구는못말려>6주차 증정이벤트 (201010016926086)
+INFO:     --- [Job] Updating CGV : [렌탈 패밀리] 오리지널 포스터(ver. Forest) (202603064912) (Gift 2026030649124410) ---
+INFO:     Scheduled next update for LOTTE : <짱구는못말려>6주차 증정이벤트 (201010016926086) at 15:06:39 (in 476s)
+INFO:     Updated 1 active inventory items for LOTTE : 프리즘 투어즈 재고 등록 (201010016926022)
+INFO:     --- [Job] Updating LOTTE : <짱구는 못말려>3주차 증정이벤트 (201010016926012) (Gift 13726) ---
+INFO:     Updated 13 active inventory items for LOTTE : <렌탈패밀리>3주차 증정이벤트 (201010016926227)
+INFO:     Scheduled next update for LOTTE : 프리즘 투어즈 재고 등록 (201010016926022) at 15:04:03 (in 320s)
+INFO:     Scheduled next update for LOTTE : <렌탈패밀리>3주차 증정이벤트 (201010016926227) at 15:04:24 (in 341s)
+INFO:     Updated 14 active inventory items for LOTTE : <시스터>2주차 주말 증정이벤트 (201010016926119)
+INFO:     --- [Job] Updating LOTTE : <센티멘탈밸류>1주차증정이벤트 (201010016926150) (Gift 14009) ---
+INFO:     --- [Job] Updating LOTTE : <슈퍼 해피 포에버>2주차 증정이벤트 (201010016925848) (Gift 13680) ---
+INFO:     Scheduled next update for LOTTE : <시스터>2주차 주말 증정이벤트 (201010016926119) at 15:03:46 (in 303s)
+INFO:     --- [Job] Updating LOTTE : <초속 5센티미터> 기획전 전산 재고 (201010016926127) (Gift 13959) ---
+INFO:     Updated active inventory items for CGV : [렌탈 패밀리] 오리지널 포스터(ver. Forest) (202603064912)
+INFO:     Scheduled next update for CGV : [렌탈 패밀리] 오리지널 포스터(ver. Forest) (202603064912) at 15:05:05 (in 381s)
+INFO:     Updated 3 active inventory items for LOTTE : <슈퍼 해피 포에버>2주차 증정이벤트 (201010016925848)
+INFO:     Scheduled next update for LOTTE : <초속 5센티미터> 기획전 전산 재고 (201010016926127) at 15:06:57 (in 493s)
+INFO:     Updated 9 active inventory items for LOTTE : <센티멘탈밸류>1주차증정이벤트 (201010016926150)
+INFO:     --- [Job] Updating LOTTE : <이터널 선샤인> 시네 아카이브 (201010016926068) (Gift 13822) ---
+INFO:     Scheduled next update for LOTTE : <슈퍼 해피 포에버>2주차 증정이벤트 (201010016925848) at 15:04:04 (in 320s)
+INFO:     --- [Job] Updating LOTTE : <왕과사는남자>스페셜상영회(2/17화,영문로고포스터)_굿즈연동 (201010016926138) (Gift 13967) ---
+INFO:     Scheduled next update for LOTTE : <센티멘탈밸류>1주차증정이벤트 (201010016926150) at 15:03:50 (in 306s)
+INFO:     --- [Job] Updating LOTTE : <햄넷> 아카데미회차 무비티켓 재고 전산 (201010016926163) (Gift 14023) ---
+INFO:     --- [Job] Updating LOTTE : <렌탈 패밀리>무비티켓 (201010016926159) (Gift 14018) ---
+INFO:     Updated 70 active inventory items for LOTTE : <짱구는 못말려>3주차 증정이벤트 (201010016926012)
+INFO:     Scheduled next update for LOTTE : <짱구는 못말려>3주차 증정이벤트 (201010016926012) at 15:05:10 (in 386s)
+INFO:     --- [Job] Updating LOTTE : <노머시:90분> MX4D포스터 증정 이벤트 (201010016926102) (Gift 13924) ---
+INFO:     Updated 2 active inventory items for LOTTE : <왕과사는남자>스페셜상영회(2/17화,영문로고포스터)_굿즈연동 (201010016926138)
+INFO:     Updated 8 active inventory items for LOTTE : <이터널 선샤인> 시네 아카이브 (201010016926068)
+INFO:     Updated 19 active inventory items for LOTTE : <렌탈 패밀리>무비티켓 (201010016926159)
+INFO:     Updated 25 active inventory items for LOTTE : <햄넷> 아카데미회차 무비티켓 재고 전산 (201010016926163)
+INFO:     Scheduled next update for LOTTE : <왕과사는남자>스페셜상영회(2/17화,영문로고포스터)_굿즈연동 (201010016926138) at 15:08:15 (in 571s)
+INFO:     Scheduled next update for LOTTE : <이터널 선샤인> 시네 아카이브 (201010016926068) at 15:05:38 (in 414s)
+INFO:     --- [Job] Updating LOTTE : <주토피아2> 6주차 증정이벤트 (201010016925857) (Gift 13697) ---
+INFO:     Updated 2 active inventory items for LOTTE : <노머시:90분> MX4D포스터 증정 이벤트 (201010016926102)
+INFO:     Scheduled next update for LOTTE : <렌탈 패밀리>무비티켓 (201010016926159) at 15:08:27 (in 583s)
+INFO:     Scheduled next update for LOTTE : <햄넷> 아카데미회차 무비티켓 재고 전산 (201010016926163) at 15:06:15 (in 451s)
+INFO:     --- [Job] Updating LOTTE : <하우스메이드>1주차 증정이벤트 (201010016926078) (Gift 13860) ---
+INFO:     Scheduled next update for LOTTE : <노머시:90분> MX4D포스터 증정 이벤트 (201010016926102) at 15:06:03 (in 439s)
+INFO:     --- [Job] Updating LOTTE : <하우스메이드>스페셜상영회(2/6)_굿즈연동 (201010016926111) (Gift 13941) ---
+INFO:     --- [Job] Updating LOTTE : <아웃오브네스트>1주차증정이벤트 (201010016926134) (Gift 13963) ---
+INFO:     --- [Job] Updating LOTTE : <짱구는 못말려>10주차 증정이벤트 (201010016926168) (Gift 14027) ---
+INFO:     Updated 1 active inventory items for LOTTE : <하우스메이드>스페셜상영회(2/6)_굿즈연동 (201010016926111)
+INFO:     Updated 8 active inventory items for LOTTE : <주토피아2> 6주차 증정이벤트 (201010016925857)
+INFO:     Scheduled next update for LOTTE : <하우스메이드>스페셜상영회(2/6)_굿즈연동 (201010016926111) at 15:06:27 (in 463s)
+INFO:     Scheduled next update for LOTTE : <주토피아2> 6주차 증정이벤트 (201010016925857) at 15:04:59 (in 375s)
+INFO:     Updated 11 active inventory items for LOTTE : <하우스메이드>1주차 증정이벤트 (201010016926078)
+INFO:     Updated 22 active inventory items for LOTTE : <아웃오브네스트>1주차증정이벤트 (201010016926134)
+INFO:     Updated 2 active inventory items for LOTTE : <짱구는 못말려>10주차 증정이벤트 (201010016926168)
+INFO:     --- [Job] Updating LOTTE : <이머시브 뽀로로~>마지막 연동 (201010016926056) (Gift 13807) ---
+INFO:     --- [Job] Updating LOTTE : <프리파라>5주차증정이벤트 (201010016926205) (Gift 14069) ---
+INFO:     Scheduled next update for LOTTE : <하우스메이드>1주차 증정이벤트 (201010016926078) at 15:04:07 (in 323s)
+INFO:     Scheduled next update for LOTTE : <아웃오브네스트>1주차증정이벤트 (201010016926134) at 15:04:44 (in 360s)
+INFO:     Scheduled next update for LOTTE : <짱구는 못말려>10주차 증정이벤트 (201010016926168) at 15:08:04 (in 560s)
+INFO:     --- [Job] Updating LOTTE : <고고다이노>1주차 증정이벤트 (201010016926040) (Gift 13773) ---
+INFO:     --- [Job] Updating LOTTE : <아바타:불과 재>4주차 증정이벤트 (201010016926011) (Gift 13725) ---
+INFO:     --- [Job] Updating LOTTE : <리틀 아멜리>1주차 증정이벤트 (201010016926046) (Gift 13782) ---
+INFO:     Updated 1 active inventory items for LOTTE : <이머시브 뽀로로~>마지막 연동 (201010016926056)
+INFO:     Scheduled next update for LOTTE : <이머시브 뽀로로~>마지막 연동 (201010016926056) at 15:06:00 (in 436s)
+INFO:     --- [Job] Updating LOTTE : <송 썽 블루> 스페셜 아트카드 증정!  (201010016926034) (Gift 13765) ---
+INFO:     Updated 43 active inventory items for LOTTE : <프리파라>5주차증정이벤트 (201010016926205)
+INFO:     Updated 14 active inventory items for LOTTE : <아바타:불과 재>4주차 증정이벤트 (201010016926011)
+INFO:     Scheduled next update for LOTTE : <프리파라>5주차증정이벤트 (201010016926205) at 15:03:46 (in 302s)
+INFO:     Updated 21 active inventory items for LOTTE : <리틀 아멜리>1주차 증정이벤트 (201010016926046)
+INFO:     Scheduled next update for LOTTE : <아바타:불과 재>4주차 증정이벤트 (201010016926011) at 15:05:52 (in 428s)
+INFO:     --- [Job] Updating LOTTE : <어리석은 자~>1주차 증정이벤트 (201010016926018) (Gift 13732) ---
+INFO:     Scheduled next update for LOTTE : <리틀 아멜리>1주차 증정이벤트 (201010016926046) at 15:04:01 (in 317s)
+INFO:     --- [Job] Updating LOTTE : <만약에 우리>GV(1/6화,필름마크) (201010016926003) (Gift 13713) ---
+INFO:     --- [Job] Updating CGV : [차임] 티저 포스터 (202603064910) (Gift 2026030649104408) ---
+INFO:     Updated 62 active inventory items for LOTTE : <고고다이노>1주차 증정이벤트 (201010016926040)
+WARNING:  Failed to fetch event info for logging: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+INFO:     Scheduled next update for 201010016926040 at 15:04:23 (in 339s)
+ERROR:    Error in job for Event 202603095109: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+WARNING:  Failed to fetch event info for logging: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+INFO:     Scheduled next update for 202603095109 at 15:05:05 (in 381s)
+ERROR:    Error in job for Event 201010016926061: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+WARNING:  Failed to fetch event info for logging: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+INFO:     Scheduled next update for 201010016926061 at 15:07:14 (in 510s)
+ERROR:    Error in job for Event 201010016926101: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+WARNING:  Failed to fetch event info for logging: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+INFO:     Scheduled next update for 201010016926101 at 15:05:45 (in 421s)
+ERROR:    Error in job for Event 201010016926170: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+WARNING:  Failed to fetch event info for logging: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+INFO:     Scheduled next update for 201010016926170 at 15:05:45 (in 421s)
+ERROR:    Error in job for Event 201010016926129: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+WARNING:  Failed to fetch event info for logging: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+INFO:     Scheduled next update for 201010016926129 at 15:07:08 (in 504s)
+ERROR:    Error in job for Event 201010016926037: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+WARNING:  Failed to fetch event info for logging: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+INFO:     Scheduled next update for 201010016926037 at 15:03:48 (in 304s)
+ERROR:    Error in job for Event 201010016926141: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+WARNING:  Failed to fetch event info for logging: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+INFO:     Scheduled next update for 201010016926141 at 15:06:57 (in 493s)
+ERROR:    Error in job for Event 201010016926148: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+WARNING:  Failed to fetch event info for logging: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+INFO:     Scheduled next update for 201010016926148 at 15:05:31 (in 407s)
+ERROR:    Error in job for Event 202603095108: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+WARNING:  Failed to fetch event info for logging: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+INFO:     Scheduled next update for 202603095108 at 15:04:00 (in 316s)
+ERROR:    Error in job for Event 201010016926030: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+WARNING:  Failed to fetch event info for logging: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+INFO:     Scheduled next update for 201010016926030 at 15:07:36 (in 532s)
+ERROR:    Error in job for Event 201010016926133: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+WARNING:  Failed to fetch event info for logging: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+INFO:     Scheduled next update for 201010016926133 at 15:04:19 (in 335s)
+INFO:     Updated 38 active inventory items for LOTTE : <송 썽 블루> 스페셜 아트카드 증정!  (201010016926034)
+ERROR:    Error in job for Event 201010016926099: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+WARNING:  Failed to fetch event info for logging: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+WARNING:  Failed to fetch event info for logging: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+INFO:     Scheduled next update for 201010016926034 at 15:08:13 (in 569s)
+INFO:     Scheduled next update for 201010016926099 at 15:08:09 (in 565s)
+INFO:     === Main Discovery Job Started ===
+INFO:     Auto-discovery Part 1: Fetching current events from Lotte Cinema API...
+ERROR:    Error in job for Event 201010016926149: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+WARNING:  Failed to fetch event info for logging: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+INFO:     Scheduled next update for 201010016926149 at 15:05:58 (in 434s)
+INFO:     Updated 1 active inventory items for LOTTE : <만약에 우리>GV(1/6화,필름마크) (201010016926003)
+WARNING:  Failed to fetch event info for logging: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+INFO:     Scheduled next update for 201010016926003 at 15:07:51 (in 547s)
+INFO:     Updated 6 active inventory items for LOTTE : <어리석은 자~>1주차 증정이벤트 (201010016926018)
+INFO:     Updated active inventory items for CGV : [차임] 티저 포스터 (202603064910)
+WARNING:  Failed to fetch event info for logging: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+INFO:     Scheduled next update for 201010016926018 at 15:06:12 (in 448s)
+WARNING:  Failed to fetch event info for logging: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+INFO:     Scheduled next update for 202603064910 at 15:06:05 (in 441s)
+ERROR:    Error processing event list on page 1: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+INFO:     Auto-discovery Part 2: Starting incremental scanning for year 26...
+ERROR:    Discovery failed for LOTTE: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+INFO:     Megabox auto-discovery (HTML Fragment Parsing) started...
+ERROR:    Discovery failed for MEGABOX: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+INFO:     CGV comprehensive discovery started...
+ERROR:    CGV General discovery failed: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+ERROR:    CGV Special discovery failed: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+INFO:     CGV discovery finished. Found 0 new/updated items.
+INFO:     CineQ auto-discovery started...
+ERROR:    Discovery failed for CINEQ: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+ERROR:    Discovery job error: (psycopg2.OperationalError) connection to server on socket "/tmp/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+
+---
+
+ERROR:    Discovery failed for LOTTE: invalid literal for int() with base 10: 'LOCAL_GIFT'
+
+이건 뭐야?
+
+---
+
+테스트용 데이터는 삭제하는게 나을거같아
+
+---
+
+수정내역 커밋 푸시해줘
+
+---
+
+개별 이벤트 굿즈 탐색은 잘 되는데 메인 이벤트 기본 탐지 스케쥴러가 안도는거같아
+
+---
+
+이벤트 기간 표시가 제대로 안나와 확인해봐
+
+---
+
+날짜가 계속 안나오는데 데이터 다시 확인해봐
+
+---
+
+뭔가 로그가 누락되는게 있는것 같아 확인해봐
