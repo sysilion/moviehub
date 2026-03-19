@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.9",
+  "checkpoint_id": "749867bdc308",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "TODO.md",
+    "src/services/event_service.py",
+    "src/web/app.py",
+    "src/web/templates/base.html",
+    "src/web/templates/cinema_detail.html",
+    "src/web/templates/cinemas.html",
+    "tests/test_cinema_pages.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/74/9867bdc308/0/metadata.json",
+      "transcript": "/74/9867bdc308/0/full.jsonl",
+      "context": "/74/9867bdc308/0/context.md",
+      "content_hash": "/74/9867bdc308/0/content_hash.txt",
+      "prompt": "/74/9867bdc308/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 1462117,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 1267300,
+    "output_tokens": 5290,
+    "api_call_count": 26
+  }
+}
