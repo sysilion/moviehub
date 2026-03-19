@@ -279,12 +279,43 @@ async def read_dashboard(
         "total_count": total_count
     })
 
+@app.get("/cinemas", response_class=HTMLResponse)
+async def list_cinemas(request: Request, db: Session = Depends(get_db)):
+    """지점 목록 조회 페이지"""
+    cinemas_by_operator = EventService.get_all_cinemas(db)
+    return templates.TemplateResponse("cinemas.html", {
+        "request": request,
+        "cinemas": cinemas_by_operator
+    })
+
+@app.get("/cinemas/{operator}/{cinema_id}", response_class=HTMLResponse)
+async def read_cinema_detail(
+    request: Request, 
+    operator: str, 
+    cinema_id: str, 
+    db: Session = Depends(get_db)
+):
+    """지점별 굿즈 조회 페이지"""
+    inventory_list = EventService.get_cinema_inventory(db, operator, cinema_id)
+    
+    # 지점 이름 찾기 (첫 번째 항목에서 추출)
+    cinema_name = "알 수 없음"
+    if inventory_list:
+        cinema_name = inventory_list[0]["Inventory"].CinemaName
+        
+    return templates.TemplateResponse("cinema_detail.html", {
+        "request": request,
+        "operator": operator,
+        "cinema_name": cinema_name,
+        "inventory_list": inventory_list
+    })
+
 @app.get("/event/{event_id}", response_class=HTMLResponse)
 async def read_event_detail(request: Request, event_id: str, db: Session = Depends(get_db)):
     event = db.query(Event).filter(Event.EventID == event_id).first()
     if not event:
         return HTMLResponse("이벤트를 찾을 수 없습니다.", status_code=404)
-    inventory = db.query(Inventory).filter(Inventory.EventID == event_id).order_by(Inventory.DivisionCode, Inventory.CinemaName).all()
+    inventory = db.query(Inventory).filter(Inventory.EventID == event_id).order_by(Inventory.DivisionName, Inventory.CinemaName).all()
     total_stock = sum(item.ItemCount for item in inventory)
     return templates.TemplateResponse("detail.html", {
         "request": request, "event": event, "inventory": inventory, "total_stock": total_stock

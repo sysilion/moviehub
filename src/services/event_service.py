@@ -78,3 +78,59 @@ class EventService:
             })
             
         return dashboard_data, total_pages, total_count
+
+    @staticmethod
+    def get_all_cinemas(db: Session):
+        """
+        모든 지점 목록을 운영사별로 그룹화하여 반환합니다.
+        Returns: { "LOTTE": [{ "CinemaID": "...", "CinemaName": "..." }, ...], ... }
+        """
+        # Event와 Inventory를 조인하여 운영사 정보까지 포함한 유니크한 지점 목록 조회
+        results = db.query(
+            Event.Operator, 
+            Inventory.CinemaID, 
+            Inventory.CinemaName
+        ).join(
+            Event, Inventory.EventID == Event.EventID
+        ).distinct().order_by(
+            Event.Operator, 
+            Inventory.CinemaName
+        ).all()
+        
+        cinemas_by_operator = {}
+        for operator, cinema_id, cinema_name in results:
+            if operator not in cinemas_by_operator:
+                cinemas_by_operator[operator] = []
+            
+            cinemas_by_operator[operator].append({
+                "CinemaID": cinema_id,
+                "CinemaName": cinema_name
+            })
+            
+        return cinemas_by_operator
+
+    @staticmethod
+    def get_cinema_inventory(db: Session, operator: str, cinema_id: str):
+        """
+        특정 지점(운영사+지점ID)의 모든 굿즈 재고를 조회합니다.
+        """
+        # 해당 지점의 인벤토리와 관련 이벤트 정보를 조인하여 조회
+        results = db.query(
+            Inventory, Event
+        ).join(
+            Event, Inventory.EventID == Event.EventID
+        ).filter(
+            Event.Operator == operator,
+            Inventory.CinemaID == cinema_id
+        ).order_by(
+            Inventory.LastUpdated.desc()
+        ).all()
+        
+        inventory_list = []
+        for inv, event in results:
+            inventory_list.append({
+                "Inventory": inv,
+                "Event": event
+            })
+            
+        return inventory_list
