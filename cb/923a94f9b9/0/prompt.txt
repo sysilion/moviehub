@@ -1,0 +1,41 @@
+씨네큐는 이벤트 페이지와 굿즈 페이지가 같은 형식으로 구성되어있어.
+
+이벤트 페이지에 각 굿즈를 매핑하는게 맞을거같아
+
+---
+
+continue
+
+---
+
+ERROR:    Error in job for Event 6713: Can't instantiate abstract class CineQCollector without an implementation for abstract methods 'fetch_event_detail', 'fetch_inventory'
+INFO:     Scheduled next update for CGV : [명탐정 코난 세기말의 마술사] 1주차 현장 증정 경품 이벤트_홀로그램 포스터 (202603245414) at 10:41:40 (in 470s)
+INFO:     --- [Job] Updating LOTTE : <극장판 체인소 맨: 레제편> 광음시네마 특전 증정 이벤트 (201010014726017) (Gift 14207) ---
+INFO:     Scheduled next update for CINEQ : <극장의 시간들> 개봉 3주차 티저 포스터 (6713) at 10:41:59 (in 489s)
+INFO:     --- [Job] Updating CINEQ : <열여덟 청춘> 개봉 2주차 포토카드 3종 세트 (6719) (Gift 0) ---
+ERROR:    Error in job for Event 6719: Can't instantiate abstract class CineQCollector without an implementation for abstract methods 'fetch_event_detail', 'fetch_inventory'
+INFO:     Scheduled next update for CINEQ : <열여덟 청춘> 개봉 2주차 포토카드 3종 세트 (6719) at 10:41:41 (in 471s)
+INFO:     --- [Job] Updating CINEQ : <휴민트>개봉 4주차 A3포스터 (6590) (Gift 0) ---
+ERROR:    Error in job for Event 6590: Can't instantiate abstract class CineQCollector without an implementation for abstract methods 'fetch_event_detail', 'fetch_inventory'
+INFO:     Scheduled next update for CINEQ : <휴민트>개봉 4주차 A3포스터 (6590) at 10:42:17 (in 507s)
+INFO:     --- [Job] Updating CINEQ : <아기 티라노 티보: 초식이지만 괜찮아> A3 공룡 전도 (6530) (Gift 0) ---
+ERROR:    Error in job for Event 6530: Can't instantiate abstract class CineQCollector without an implementation for abstract methods 'fetch_event_detail', 'fetch_inventory'
+INFO:     Scheduled next update for CINEQ : <아기 티라노 티보: 초식이지만 괜찮아> A3 공룡 전도 (6530) at 10:40:22 (in 392s)
+INFO:     --- [Job] Updating CINEQ : <메소드 연기> 스페셜 티켓B (6651) (Gift 0) ---
+ERROR:    Error in job for Event 6651: Can't instantiate abstract class CineQCollector without an implementation for abstract methods 'fetch_event_detail', 'fetch_inventory'
+INFO:     Scheduled next update for CINEQ : <메소드 연기> 스페셜 티켓B (6651) at 10:43:21 (in 571s)
+INFO:     === [Discovery] Main Discovery Job Started ===
+
+---
+
+롯데시네마 이벤트중에 굿즈번호가 매칭되지않은 이벤트의 경우 주기적으로 굿즈번호 찾는 기능이 들어가 있어?
+
+---
+
+3. Part 3 (신규): DB에 등록된 이벤트 중 GiftID가 비어있는 진행 중인 이벤트들을 대상으로 주변 굿즈 번호 범위 내에서 다시 한 번 매칭을 시도합니다.
+
+계속 진행하지 말고 이벤트 시작일까지만 시도해
+
+---
+
+201010016926294 이 이벤트 왜 굿즈수량이 갱신 안될까? 롯데시네마야
