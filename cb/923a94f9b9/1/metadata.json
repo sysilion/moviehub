@@ -1,0 +1,31 @@
+{
+  "cli_version": "0.4.9",
+  "checkpoint_id": "cb923a94f9b9",
+  "session_id": "7bc2c154-0c93-42be-b75d-fabfea047143",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-02T08:05:54.807298Z",
+  "branch": "main",
+  "checkpoints_count": 10,
+  "files_touched": [
+    "src/collectors/cineq.py",
+    "src/scheduler/main.py"
+  ],
+  "agent": "Gemini CLI",
+  "turn_id": "5c86b23dd083",
+  "token_usage": {
+    "input_tokens": 7980110,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 5666373,
+    "output_tokens": 43816,
+    "api_call_count": 67
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-02T08:05:54.492187Z",
+    "agent_lines": 130,
+    "human_added": 5,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 135,
+    "agent_percentage": 96.29629629629629
+  }
+}

@@ -1,0 +1,62 @@
+# Session Context
+
+## User Prompts
+
+### Prompt 1
+
+현재 시스템 api 접속해서 테스트 진행해볼수 있어? 정상적으로 나오는지 확인해봐
+
+### Prompt 2
+
+메가박스랑 씨네큐 이벤트 정보가 제대로 표시 안되는거같은데 확인해봐
+
+### Prompt 3
+
+씨네큐 이벤트 정보 요청 명령이야
+
+curl 'https://api.cineq.co.kr/api/v1/Movie/GetEvent' \
+  -H 'accept: */*' \
+  -H 'accept-language: en-US,en;q=0.9,ko-KR;q=0.8,ko;q=0.7' \
+  -H 'dnt: 1' \
+  -H 'origin: https://m.cineq.co.kr' \
+  -H 'priority: u=1, i' \
+  -H 'referer: https://m.cineq.co.kr/' \
+  -H 'sec-ch-ua: "Google Chrome";v="147", "Not.A/Brand";v="8", "Chromium";v="147"' \
+  -H 'sec-ch-ua-mobile: ?1' \
+  -H 'sec-ch-ua-platform: "Android"' \
+  -H 'sec-fetch-dest: empty' \
+  -H 'sec-fetch-mode: cors' \
+  ...
+
+### Prompt 4
+
+maxcount 가 현재수량이고 issue가 처음 ㅂ배부받은 수량인거같아.
+
+### Prompt 5
+
+maxcount 가 어떤게 있는지 확인해봐. 정확한 수량은 아닌걸로 보이는데
+
+### Prompt 6
+
+100은 재고여유 같고 10은 10개미만 인걸로 보이네 0은 소진이야.
+
+1은 굿즈관련 이벤트가 아닌거은데.
+
+그리고 이벤트 번호랑 굿즈번호가 따로 나뉘어져 있지않고 혼재된걸로 보이네. 이거 제대로 처리 된거야?
+
+### Prompt 7
+
+이벤트 타입별로 구분을 해야할거같기도 하고.
+
+### Prompt 8
+
+메가박스 굿즈 이벤트도 확인해줘
+
+### Prompt 9
+
+웹페이지 직접 접속해서 각 항목들 의도한 대로 정상동작하는지 테스트하고 이상한부분을 보고해줘
+
+### Prompt 10
+
+cgv 이벤트는 이벤트 페이지와 굿즈 목록 페이지가 구분되어있어. 이걸 매칭 할 방법을 고민해봐
+
