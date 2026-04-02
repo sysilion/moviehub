@@ -27,3 +27,8 @@ This document outlines the planned improvements for the MovieHub system, excludi
 ## 5. Testing & CI (Status: Completed)
 - [x] **Integration Tests**: Updated existing tests to support `Date` objects and added error handling validation.
 - [x] **CI Setup**: Verified with `pytest` suite passing all cases.
+
+## 6. CineQ Scheduling Optimization (Status: Completed)
+- [x] **Optimization**: Remove redundant individual event tracking jobs for CineQ events.
+  - *Rationale*: CineQ API returns all events and inventory in a single call. Individual jobs for each event were causing duplicate API requests and unnecessary resource consumption.
+  - *Action*: Modified `src/scheduler/main.py` to skip `CINEQ` operator events during individual job scheduling.

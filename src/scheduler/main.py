@@ -77,8 +77,11 @@ class MovieHubScheduler:
 
     def remove_job(self, event_id):
         job_id = f"job_{event_id}"
-        if self.scheduler.get_job(job_id):
-            self.scheduler.remove_job(job_id)
+        try:
+            if self.scheduler.get_job(job_id):
+                self.scheduler.remove_job(job_id)
+        except Exception as e:
+            logger.warning(f"Failed to remove job {job_id}: {e}")
 
     def schedule_next_discovery(self):
         """다음 탐색 작업의 실행 시간을 예약합니다. (동적 주기 적용)"""
@@ -206,6 +209,11 @@ def main_discovery_task():
         logger.info(f"=== [Discovery] Processing {len(active_targets)} active tracking targets ===")
         
         for event_id, gift_id in active_targets:
+            # 씨네큐는 discover_new_events에서 모든 재고를 한꺼번에 처리하므로 개별 잡을 생성하지 않음
+            event = session.query(Event).filter_by(EventID=event_id).first()
+            if event and event.Operator == "CINEQ":
+                continue
+
             job_id = f"job_{event_id}"
             existing_job = _hub_scheduler.scheduler.get_job(job_id)
             
