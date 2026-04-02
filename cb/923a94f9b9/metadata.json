@@ -3,7 +3,7 @@
   "checkpoint_id": "cb923a94f9b9",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 15,
+  "checkpoints_count": 17,
   "files_touched": [
     "src/collectors/cineq.py",
     "src/scheduler/main.py"
@@ -22,13 +22,20 @@
       "context": "/cb/923a94f9b9/1/context.md",
       "content_hash": "/cb/923a94f9b9/1/content_hash.txt",
       "prompt": "/cb/923a94f9b9/1/prompt.txt"
+    },
+    {
+      "metadata": "/cb/923a94f9b9/2/metadata.json",
+      "transcript": "/cb/923a94f9b9/2/full.jsonl",
+      "context": "/cb/923a94f9b9/2/context.md",
+      "content_hash": "/cb/923a94f9b9/2/content_hash.txt",
+      "prompt": "/cb/923a94f9b9/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 11300824,
+    "input_tokens": 11929762,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 7349251,
-    "output_tokens": 57009,
-    "api_call_count": 102
+    "cache_read_tokens": 7675464,
+    "output_tokens": 60858,
+    "api_call_count": 115
   }
 }
