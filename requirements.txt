@@ -1,12 +1,3 @@
-sqlalchemy
 requests
-apscheduler
 python-dotenv
-fastapi
-uvicorn[standard]
-jinja2
-python-multipart
-psycopg2-binary
-playwright
-alembic
 pydantic-settings

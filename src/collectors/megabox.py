@@ -1,135 +1,96 @@
-import requests
-import re
 from datetime import datetime
-from sqlalchemy.orm import Session
-from src.database.models import Event, Inventory
-from src.utils.logger import get_logger
+
+import requests
+
 from src.collectors.base import BaseCollector
-from src.utils.notifier import notifier
+from src.utils.logger import get_logger
 
 logger = get_logger("MegaboxCollector")
 
+
+def _parse_date(date_str) -> str | None:
+    if not date_str:
+        return None
+    try:
+        clean = str(date_str).replace(".", "-")[:10]
+        datetime.strptime(clean, "%Y-%m-%d")
+        return clean
+    except (ValueError, TypeError):
+        return None
+
+
 class MegaboxCollector(BaseCollector):
-    # 이벤트 목록 페이지 (AJAX 호출 결과가 HTML 조각임)
-    BASE_URL = "https://www.megabox.co.kr/on/oh/ohe/Event/eventMngDiv.do"
-    
+    BASE_URL = "https://www.megabox.co.kr/on/oh/ohe/Event/selectEventList.do"
+    DETAIL_URL_TEMPLATE = "https://www.megabox.co.kr/event/detail?eventNo={event_id}"
+
     HEADERS = {
-        "Accept": "*/*",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "X-Requested-With": "XMLHttpRequest",
-        "Referer": "https://www.megabox.co.kr/event"
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36",
+        "Referer": "https://m.megabox.co.kr/event",
     }
-    
-    KEYWORDS = ["오리지널", "티켓", "굿즈", "증정", "돌비", "포스터"]
 
-    def __init__(self, session: Session):
-        super().__init__(session)
+    CATEGORY_MAP = {
+        "CED01": "영화",
+        "CED02": "극장",
+        "CED03": "굿즈/메가Pick",
+        "CED04": "시사회/무대인사",
+        "CED05": "제휴/할인",
+    }
 
-    def fetch_events(self, category="CED03", page=1):
+    def _fetch_events(self, status="ONG"):
         payload = {
-            "currentPage": str(page),
-            "recordCountPerPage": "100",
-            "eventStatCd": "ONG",
-            "orderReqCd": "ONGlist",
-            "eventClasCd": category
+            "currentPage": "1",
+            "recordCountPerPage": "200",
+            "eventStatCd": status,
         }
         try:
-            response = requests.post(self.BASE_URL, data=payload, headers=self.HEADERS, timeout=10)
+            response = requests.post(
+                self.BASE_URL, data=payload, headers=self.HEADERS, timeout=15
+            )
             response.raise_for_status()
-            return response.text
+            return response.json()
         except Exception as e:
-            logger.error(f"Megabox fetch failed for {category}: {e}")
+            logger.error(f"Megabox API fetch failed (status={status}): {e}")
             return None
 
-    def fetch_event_detail(self, event_id):
-        return None
+    def _normalize(self, item) -> dict:
+        event_id = str(item.get("eventNo") or "")
+        img_base = "https://img.megabox.co.kr"
+        img_path = item.get("moFilePathNm") or item.get("pcFilePathNm")
+        image_url = (img_base + img_path) if img_path else None
 
-    def fetch_inventory(self, event_id, gift_id):
-        return None
+        div_cd = item.get("eventDivCd")
 
-    def save_event(self, event_data: dict, gift_id: str = None):
-        event_id = str(event_data.get("EventID"))
-        if not event_id: return None
-        
-        event = self.session.query(Event).filter_by(EventID=event_id).first()
-        if not event:
-            event = Event(EventID=event_id, Operator="MEGABOX")
-            self.session.add(event)
-        else:
-            event.Operator = "MEGABOX"
-        
-        def parse_date(date_str):
-            if not date_str: return None
-            # "2025.01.01", "2025-01-01", "20250101" 형식 대응
-            clean_date = str(date_str).replace(".", "-")[:10]
-            try:
-                if "-" in clean_date:
-                    return datetime.strptime(clean_date, "%Y-%m-%d").date()
-                else:
-                    return datetime.strptime(clean_date, "%Y%m%d").date()
-            except (ValueError, TypeError):
-                return None
+        return {
+            "EventID": event_id,
+            "Operator": "MEGABOX",
+            "EventName": item.get("eventTitle") or "",
+            "EventTypeName": self.CATEGORY_MAP.get(div_cd, "이벤트"),
+            "ProgressStartDate": _parse_date(item.get("eventStartDt")),
+            "ProgressEndDate": _parse_date(item.get("eventEndDt")),
+            "ImageUrl": image_url,
+            "DetailImageUrl": None,
+            "DetailUrl": self.DETAIL_URL_TEMPLATE.format(event_id=event_id) if event_id else None,
+        }
 
-        event.EventName = event_data.get("EventName")
-        event.ImageUrl = event_data.get("ImageUrl")
-        
-        new_start = parse_date(event_data.get("StartDate"))
-        if new_start:
-            event.ProgressStartDate = new_start
-            
-        new_end = parse_date(event_data.get("EndDate"))
-        if new_end:
-            event.ProgressEndDate = new_end
-        
-        self.session.commit()
-        return event
+    def collect_events(self) -> list[dict]:
+        logger.info("Megabox: collecting events...")
+        seen_ids: set[str] = set()
+        results: list[dict] = []
 
-    def collect_target_inventory(self, event_id: str, gift_id: str):
-        return False
+        for status in ("ONG", "END"):
+            data = self._fetch_events(status=status)
+            if not data or "eventDivList" not in data:
+                continue
+            for item in data["eventDivList"]:
+                e_id = str(item.get("eventNo") or "")
+                if not e_id or e_id in seen_ids:
+                    continue
+                seen_ids.add(e_id)
+                results.append(self._normalize(item))
+            # 진행 중 이벤트(ONG)만으로 충분하면 여기서 멈춰도 됨
+            if status == "ONG":
+                break
 
-    def discover_new_events(self):
-        logger.info("Megabox auto-discovery (HTML Fragment Parsing) started...")
-        import html as html_lib
-        
-        categories = ["CED01", "CED02", "CED03", "CED04", "CED05"]
-        found_total = 0
-        
-        for cat in categories:
-            html = self.fetch_events(category=cat)
-            if not html: continue
-            
-            # 1. 개별 리스트 아이템 분리 (<li> 단위)
-            items_raw = re.findall(r'<li[^>]*>(.*?)</li>', html, re.DOTALL)
-            
-            for item_html in items_raw:
-                # 2. data-no 추출
-                no_match = re.search(r'data-no="(\d+)"', item_html)
-                # 3. 제목 추출
-                tit_match = re.search(r'<p\s+class="tit"[^>]*>(.*?)</p>', item_html, re.DOTALL)
-                # 4. 이미지 추출
-                img_match = re.search(r'<img\s+src="([^"]+)"', item_html)
-                # 5. 날짜 추출 (멀티라인 및 공백 대응)
-                date_match = re.search(r'<p\s+class="date"[^>]*>\s*([\d\.]+)\s*~\s*([\d\.]+)\s*</p>', item_html, re.DOTALL)
-                
-                if no_match and tit_match:
-                    event_id = no_match.group(1)
-                    title = html_lib.unescape(tit_match.group(1).strip())
-                    img = img_match.group(1) if img_match else ""
-                    # 날짜 정리 (공백 제거)
-                    start = date_match.group(1).replace(".", "-").strip() if date_match else ""
-                    end = date_match.group(2).replace(".", "-").strip() if date_match else ""
-                    
-                    data = {
-                        "EventID": event_id,
-                        "EventName": title,
-                        "ImageUrl": img if img.startswith("http") else "https://img.megabox.co.kr" + img,
-                        "StartDate": start,
-                        "EndDate": end
-                    }
-                    
-                    if self.save_event(data):
-                        found_total += 1
-                
-        logger.info(f"Megabox discovery finished. Found {found_total} new/updated events.")
-        return found_total
+        logger.info(f"Megabox: collected {len(results)} events")
+        return results

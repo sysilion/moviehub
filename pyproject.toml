@@ -1,20 +1,11 @@
 [project]
 name = "moviehub"
-version = "0.1.0"
-description = "Movie goods inventory tracker"
+version = "2.0.0"
+description = "Movie event tracker — static site with GitHub Pages"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "sqlalchemy",
     "requests",
-    "apscheduler",
     "python-dotenv",
-    "fastapi",
-    "uvicorn[standard]",
-    "jinja2",
-    "python-multipart",
-    "psycopg2-binary",
-    "playwright",
-    "alembic",
-    "pydantic-settings"
+    "pydantic-settings",
 ]

@@ -8,9 +8,15 @@ venv/
 env/
 .env
 
-# Database
+# Database (not used in v2, but keep just in case)
 *.db
 *.sqlite3
+
+# Logs (refresh_events output — kept local, not committed)
+server.log
+
+# Relay / old files
+relay.db
 
 # IDE
 .vscode/

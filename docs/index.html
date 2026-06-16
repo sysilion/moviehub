@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="ko" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MovieHub - 영화관 이벤트 모아보기</title>
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --primary-color: #3b82f6;
+      --bg-color: #0f172a;
+      --card-bg: #1e293b;
+      --border-color: #334155;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --card-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.5);
+    }
+
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      word-break: keep-all;
+    }
+
+    .navbar {
+      background-color: rgba(15, 23, 42, 0.8) !important;
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 1rem 0;
+    }
+
+    .navbar-brand {
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      color: var(--primary-color) !important;
+      font-size: 1.5rem;
+    }
+
+    .event-card {
+      border: 1px solid var(--border-color);
+      border-radius: 1.25rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      background: var(--card-bg);
+      overflow: hidden;
+      box-shadow: var(--card-shadow);
+      height: 100%;
+    }
+
+    .event-card:hover {
+      transform: translateY(-6px);
+      border-color: var(--primary-color);
+    }
+
+    .card-img-container {
+      position: relative;
+      padding-top: 50%;
+      overflow: hidden;
+      background-color: #0f172a;
+    }
+
+    .card-img-top {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      transition: transform 0.5s ease;
+    }
+
+    .event-card:hover .card-img-top { transform: scale(1.05); }
+
+    .no-image-placeholder {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+      color: var(--border-color);
+    }
+
+    /* 운영사 배지 */
+    .badge-lotte   { background: rgba(220,38,38,0.15);   color: #f87171; }
+    .badge-cgv     { background: rgba(234,179,8,0.15);   color: #facc15; }
+    .badge-megabox { background: rgba(168,85,247,0.15);  color: #c084fc; }
+    .badge-cineq   { background: rgba(14,165,233,0.15);  color: #38bdf8; }
+    .badge-unknown { background: rgba(148,163,184,0.15); color: #94a3b8; }
+
+    /* 이벤트 타입 배지 */
+    .badge-type-goods    { background: rgba(16,185,129,0.15); color: #34d399; }
+    .badge-type-special  { background: rgba(245,158,11,0.15); color: #fbbf24; }
+    .badge-type-movie    { background: rgba(59,130,246,0.15);  color: #60a5fa; }
+    .badge-type-default  { background: rgba(148,163,184,0.15); color: #cbd5e1; }
+
+    .op-badge, .type-badge {
+      display: inline-block;
+      padding: 0.25rem 0.6rem;
+      border-radius: 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .filter-btn {
+      border: 1px solid var(--border-color);
+      background: var(--card-bg);
+      color: var(--text-muted);
+      border-radius: 2rem;
+      padding: 0.4rem 1rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .filter-btn:hover, .filter-btn.active {
+      background: var(--primary-color);
+      color: #fff;
+      border-color: var(--primary-color);
+    }
+
+    .search-input {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      border-radius: 2rem;
+      padding: 0.5rem 1.2rem;
+    }
+    .search-input:focus {
+      background: var(--card-bg);
+      border-color: var(--primary-color);
+      color: var(--text-main);
+      box-shadow: 0 0 0 0.25rem rgba(59,130,246,0.25);
+      outline: none;
+    }
+    .search-input::placeholder { color: var(--text-muted); }
+
+    .ended-badge {
+      position: absolute;
+      top: 0.75rem; right: 0.75rem;
+      background: rgba(0,0,0,0.75);
+      color: #ef4444;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      border-radius: 0.4rem;
+      backdrop-filter: blur(4px);
+    }
+
+    .card-body { padding: 1.1rem; }
+    .card-title { font-size: 0.95rem; font-weight: 700; line-height: 1.4; margin-bottom: 0.5rem; }
+
+    .period-text { font-size: 0.78rem; color: var(--text-muted); }
+
+    #status-bar { font-size: 0.8rem; color: var(--text-muted); }
+
+    .loading-spinner {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 300px; flex-direction: column; gap: 1rem;
+      color: var(--text-muted);
+    }
+
+    hr { border-color: var(--border-color); opacity: 0.5; }
+
+    footer { border-top: 1px solid var(--border-color); }
+
+    @media (max-width: 576px) {
+      .filter-btn { font-size: 0.78rem; padding: 0.35rem 0.8rem; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg sticky-top mb-4">
+    <div class="container">
+      <span class="navbar-brand">🎬 MOVIEHUB</span>
+      <span id="status-bar" class="ms-auto d-none d-md-block"></span>
+    </div>
+  </nav>
+
+  <div class="container pb-5">
+
+    <!-- 필터 영역 -->
+    <div class="d-flex flex-wrap gap-2 mb-3" id="op-filters">
+      <button class="filter-btn active" data-op="ALL">전체</button>
+      <button class="filter-btn" data-op="LOTTE">롯데시네마</button>
+      <button class="filter-btn" data-op="CGV">CGV</button>
+      <button class="filter-btn" data-op="MEGABOX">메가박스</button>
+      <button class="filter-btn" data-op="CINEQ">씨네Q</button>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2 mb-4 align-items-center">
+      <input type="text" id="search-input" class="search-input flex-grow-1" placeholder="이벤트 제목 검색...">
+      <div class="form-check form-switch mb-0 ms-2">
+        <input class="form-check-input" type="checkbox" id="show-ended">
+        <label class="form-check-label text-muted small" for="show-ended">종료된 이벤트 포함</label>
+      </div>
+    </div>
+
+    <!-- 카드 그리드 -->
+    <div id="event-grid" class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-xl-4 g-3">
+      <div class="loading-spinner col-12">
+        <div class="spinner-border text-primary" role="status"></div>
+        <span>이벤트 목록을 불러오는 중...</span>
+      </div>
+    </div>
+
+    <p id="no-result" class="text-center text-muted mt-5 d-none">조건에 맞는 이벤트가 없습니다.</p>
+
+  </div>
+
+  <footer class="text-center py-4 mt-3">
+    <div class="container">
+      <p class="mb-1 fw-bold small">MovieHub — 영화관 이벤트 통합 트래커</p>
+      <small class="text-muted">&copy; 2026 · 데이터는 매 시간 자동 갱신됩니다</small>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+  (() => {
+    const DATA_URL = './data/events.json';
+    const TODAY = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+    let allEvents = [];
+    let activeOp = 'ALL';
+    let searchQuery = '';
+    let showEnded = false;
+
+    // ── 배지 생성 ──────────────────────────────────────────
+    function opBadge(op) {
+      const map = {
+        LOTTE:   ['badge-lotte',   '롯데시네마'],
+        CGV:     ['badge-cgv',     'CGV'],
+        MEGABOX: ['badge-megabox', '메가박스'],
+        CINEQ:   ['badge-cineq',   '씨네Q'],
+      };
+      const [cls, label] = map[op] || ['badge-unknown', op || '?'];
+      return `<span class="op-badge ${cls}">${label}</span>`;
+    }
+
+    function typeBadge(typeName) {
+      if (!typeName) return '';
+      const name = typeName.toLowerCase();
+      let cls = 'badge-type-default';
+      if (name.includes('굿즈') || name.includes('증정') || name.includes('pick')) cls = 'badge-type-goods';
+      else if (name.includes('시사회') || name.includes('무대인사') || name.includes('special')) cls = 'badge-type-special';
+      else if (name.includes('영화')) cls = 'badge-type-movie';
+      return `<span class="type-badge ${cls} ms-1">${typeName}</span>`;
+    }
+
+    // ── 종료 판정 ──────────────────────────────────────────
+    function isEnded(ev) {
+      if (!ev.ProgressEndDate) return false;
+      return ev.ProgressEndDate < TODAY;
+    }
+
+    // ── 기간 포맷 ──────────────────────────────────────────
+    function periodText(ev) {
+      const s = ev.ProgressStartDate;
+      const e = ev.ProgressEndDate;
+      if (!s && !e) return '';
+      if (s && e) return `${s} ~ ${e}`;
+      if (s) return `${s} ~`;
+      return `~ ${e}`;
+    }
+
+    // ── 카드 HTML ──────────────────────────────────────────
+    function renderCard(ev) {
+      const ended = isEnded(ev);
+      const imgHtml = ev.ImageUrl
+        ? `<img src="${escHtml(ev.ImageUrl)}" class="card-img-top" alt="${escHtml(ev.EventName)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+           <div class="no-image-placeholder" style="display:none">🎬</div>`
+        : `<div class="no-image-placeholder">🎬</div>`;
+
+      const endedBadge = ended ? '<span class="ended-badge">종료</span>' : '';
+      const period = periodText(ev);
+      const link = ev.DetailUrl
+        ? `href="${escHtml(ev.DetailUrl)}" target="_blank" rel="noopener"`
+        : '';
+
+      return `
+        <div class="col">
+          <a ${link} class="text-decoration-none">
+            <div class="event-card${ended ? ' opacity-60' : ''}">
+              <div class="card-img-container">
+                ${imgHtml}
+                ${endedBadge}
+              </div>
+              <div class="card-body">
+                <div class="mb-1">${opBadge(ev.Operator)}${typeBadge(ev.EventTypeName)}</div>
+                <p class="card-title">${escHtml(ev.EventName)}</p>
+                ${period ? `<p class="period-text mb-0">📅 ${escHtml(period)}</p>` : ''}
+              </div>
+            </div>
+          </a>
+        </div>`;
+    }
+
+    function escHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // ── 필터링 ─────────────────────────────────────────────
+    function filtered() {
+      return allEvents.filter(ev => {
+        if (!showEnded && isEnded(ev)) return false;
+        if (activeOp !== 'ALL' && ev.Operator !== activeOp) return false;
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          const name = (ev.EventName || '').toLowerCase();
+          if (!name.includes(q)) return false;
+        }
+        return true;
+      });
+    }
+
+    // ── 렌더 ───────────────────────────────────────────────
+    function render() {
+      const grid = document.getElementById('event-grid');
+      const noResult = document.getElementById('no-result');
+      const list = filtered();
+
+      if (list.length === 0) {
+        grid.innerHTML = '';
+        noResult.classList.remove('d-none');
+      } else {
+        noResult.classList.add('d-none');
+        grid.innerHTML = list.map(renderCard).join('');
+      }
+    }
+
+    // ── 상태바 ─────────────────────────────────────────────
+    function updateStatus(total) {
+      const bar = document.getElementById('status-bar');
+      if (!bar) return;
+      bar.textContent = `총 ${total}개 이벤트`;
+    }
+
+    // ── 데이터 로드 ────────────────────────────────────────
+    async function loadData() {
+      try {
+        const res = await fetch(DATA_URL + '?t=' + Date.now());
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        allEvents = await res.json();
+
+        // 정렬: 진행 중 우선, 시작일 내림차순
+        allEvents.sort((a, b) => {
+          const ae = isEnded(a), be = isEnded(b);
+          if (ae !== be) return ae ? 1 : -1;
+          const as = a.ProgressStartDate || '';
+          const bs = b.ProgressStartDate || '';
+          return bs.localeCompare(as);
+        });
+
+        updateStatus(allEvents.length);
+        render();
+      } catch (err) {
+        document.getElementById('event-grid').innerHTML =
+          `<div class="col-12 text-center text-danger py-5">
+            <p>이벤트 데이터를 불러오지 못했습니다.</p>
+            <small class="text-muted">${err.message}</small>
+          </div>`;
+      }
+    }
+
+    // ── 이벤트 바인딩 ──────────────────────────────────────
+    document.getElementById('op-filters').addEventListener('click', e => {
+      const btn = e.target.closest('[data-op]');
+      if (!btn) return;
+      activeOp = btn.dataset.op;
+      document.querySelectorAll('#op-filters .filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      render();
+    });
+
+    document.getElementById('search-input').addEventListener('input', e => {
+      searchQuery = e.target.value.trim();
+      render();
+    });
+
+    document.getElementById('show-ended').addEventListener('change', e => {
+      showEnded = e.target.checked;
+      render();
+    });
+
+    // ── 초기 로드 ──────────────────────────────────────────
+    loadData();
+  })();
+  </script>
+</body>
+</html>

@@ -1,60 +1,108 @@
-# MovieHub - 영화 굿즈 재고 트래커
+# MovieHub — 영화관 이벤트 모아보기
 
-영화관(롯데시네마, CGV, 메가박스, 씨네Q)의 이벤트 및 굿즈 재고를 실시간으로 추적하고 알림을 보내는 시스템입니다.
+롯데시네마, CGV, 메가박스, 씨네Q 4대 영화관의 진행 중 이벤트를 하나의 페이지에서 통합해서 볼 수 있는 정적 사이트입니다.
+
+🌐 **사이트**: https://sysilion.github.io/moviehub/
 
 ## 주요 기능
-- **실시간 재고 추적**: 주요 4대 영화관의 이벤트 굿즈 수량을 자동으로 모니터링합니다.
-- **스마트 알림**: 재고 신규 발견, 품절, 재입고 발생 시 텔레그램으로 즉시 알림을 전송합니다.
-- **데이터 시각화**: 각 지점별 재고 변동 이력을 그래프로 확인할 수 있습니다.
-- **자동 탐색**: 새로운 이벤트와 굿즈 번호를 자동으로 스캔하여 등록합니다.
 
-## 기술 스택
-- **Backend**: FastAPI, SQLAlchemy, Alembic (Database Migration)
-- **Database**: PostgreSQL (Production), SQLite (Local/Test)
-- **Frontend**: Jinja2 Templates, Bootstrap 5, Vercel Speed Insights
-- **Scheduler**: Vercel Cron Jobs (Production), APScheduler (Local)
-- **Settings**: Pydantic Settings (Environment Variable Management)
+- **통합 이벤트 목록**: 4대 영화관 이벤트를 한 화면에서 확인
+- **실시간 필터**: 영화관별 버튼 / 제목 검색 / 종료 이벤트 토글
+- **자동 갱신**: 국내 Mac에서 매 시간 정각에 크롤링 → GitHub Pages에 자동 반영
+- **신규 이벤트 알림**: 새로운 이벤트 발견 시 텔레그램 알림 발송 (필터 설정 가능)
 
-## 프로젝트 구조
+## 아키텍처
+
 ```
-src/
-├── collectors/   # 각 영화관별 데이터 수집 로직
-├── services/     # 비즈니스 로직 (이벤트 필터링, 조회 등)
-├── database/     # DB 모델 및 엔진 설정
-├── scheduler/    # 백그라운드 작업 관리 (Local용)
-├── utils/        # 로그, 알림, 설정 등 공통 유틸리티
-└── web/          # FastAPI 라우터 및 HTML 템플릿
+[국내 Mac, launchd 매시간]
+  tools/refresh_events.py
+    ↓ 4개 영화관 API 크롤
+    ↓ docs/data/events.json 병합 (기존 이벤트 보존)
+    ↓ 신규 이벤트 텔레그램 알림
+    ↓ git commit & push
+
+[GitHub repo/docs/] → GitHub Pages
+  docs/index.html       정적 셸 + 클라이언트 JS
+  docs/data/events.json 매시간 갱신되는 통합 이벤트 데이터
 ```
 
-## 설치 및 실행
+> **국내 IP 필요**: 한국 영화관 API는 해외 클라우드 IP를 차단하므로 크롤링은
+> 반드시 국내 네트워크 환경에서 실행해야 합니다.
 
-### 1. 환경 변수 설정
-`.env` 파일을 생성하고 다음 정보를 입력합니다.
+## 설치
+
+```bash
+pip install -r requirements.txt
+```
+
+## 환경 변수 (`.env`)
+
 ```env
-DATABASE_URL=postgresql://user:pass@host:port/db
+# 텔레그램 알림 (선택)
 TELEGRAM_BOT_TOKEN=your_token
 TELEGRAM_CHAT_ID=your_chat_id
+
+# 알림 필터 (비워두면 전체 알림)
+# NOTIFY_OPERATORS=LOTTE,CGV      # 특정 영화관만 알림
+# NOTIFY_KEYWORDS=증정,뱃지,아트카드  # 키워드 포함 이벤트만 알림
 ```
 
-### 2. 로컬 실행
-```bash
-# 의존성 설치
-pip install -r requirements.txt
+## 수동 실행
 
-# DB 마이그레이션 및 앱 실행
-PYTHONPATH=. python main.py
+```bash
+# 이벤트 갱신 및 GitHub push
+python3 tools/refresh_events.py
 ```
 
-### 3. Vercel 배포
-- Vercel에 프로젝트 연결 시 환경 변수를 설정합니다.
-- `vercel.json` 설정을 통해 자동 크론 작업이 수행됩니다.
+## 매시간 자동 실행 설정 (Mac launchd)
 
-## 마이그레이션 관리 (Alembic)
-스키마 변경 시 다음 명령어를 사용합니다.
 ```bash
-# 마이그레이션 스크립트 생성
-alembic revision --autogenerate -m "description"
+# plist 복사
+cp com.moviehub.refresh.plist ~/Library/LaunchAgents/
 
-# DB에 반영
-alembic upgrade head
+# launchd에 등록
+launchctl load ~/Library/LaunchAgents/com.moviehub.refresh.plist
+
+# 즉시 테스트 실행
+launchctl start com.moviehub.refresh
+
+# 제거
+launchctl unload ~/Library/LaunchAgents/com.moviehub.refresh.plist
+```
+
+## 프로젝트 구조
+
+```
+src/
+└── collectors/   # 영화관별 이벤트 수집기 (DB 없음, dict 반환)
+    ├── base.py
+    ├── lotte.py
+    ├── cgv.py
+    ├── megabox.py
+    └── cineq.py
+src/utils/        # 로거, 텔레그램 알림, 설정
+tools/
+└── refresh_events.py  # 수집 → 병합 → commit/push 메인 스크립트
+docs/
+├── index.html         # 정적 사이트 (단일 파일)
+└── data/events.json   # 매시간 갱신되는 이벤트 데이터
+```
+
+## events.json 스키마
+
+```json
+[
+  {
+    "EventID": "string",
+    "Operator": "LOTTE | CGV | MEGABOX | CINEQ",
+    "EventName": "string",
+    "EventTypeName": "string | null",
+    "ProgressStartDate": "YYYY-MM-DD | null",
+    "ProgressEndDate": "YYYY-MM-DD | null",
+    "ImageUrl": "string | null",
+    "DetailImageUrl": "string | null",
+    "DetailUrl": "string | null",
+    "FirstSeen": "ISO8601 datetime"
+  }
+]
 ```
