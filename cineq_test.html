@@ -1,0 +1,457 @@
+
+
+
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <!--meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0"-->
+    <meta name="viewport" content="width=1020px, initial-scale=auto, user-scalable=yes">
+    
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">   
+    
+    <meta name="keywords" content="영화,영화관,극장,씨네큐,CineQ,씨네">
+    <meta name="description" content="Next Entertainment World 에서 만든 최고의 영화관입니다">
+    <meta name="twitter:description" content="Next Entertainment World 에서 만든 최고의 영화관입니다" />
+    <meta property="og:description" content="Next Entertainment World 에서 만든 최고의 영화관입니다" />
+    <meta property="og:image" content="https://www.cineq.co.kr/images/header/logo.png" />
+    <meta property="og:site_name" content="씨네Q" />
+    <meta property="og:title" content="씨네Q" />
+    <meta property="og:url" content="http://www.cineq.co.kr/" />
+    <meta property="og:type" content="article" />
+
+    <title>씨네Q</title>
+    <link href='https://fonts.googleapis.com/earlyaccess/notosanskr.css' rel='stylesheet' type='text/css'>
+
+    <link href="/bundles/css?v=YY5bejxuMpnjAoaprt4yPzuBKnARXpqbT9Oj_Owh9-E1" rel="stylesheet"/>
+
+    <script src="/bundles/script?v=ZcVEk0JZoYzn5rdN_qKPTYJkRp-Bc9tOQxCC6YssSZ81"></script>
+
+
+    
+    <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"></script>
+    <script src="/Scripts/SNSShare.js"></script>
+
+
+<script type="text/javascript">
+    $(function () {
+        $(".nomemberloginpop").click(function () {
+            if ($(this).prop("tagName") == "A") {
+                var redirect = $(this).prop("href");
+                $.desktop.login.openNoMember(function () {
+                    window.location.href = redirect;
+                });
+            } else {
+                window.location.reload(true);
+            }
+            return false;
+        });
+
+        $(".loginpop").click(function (e) {
+            if ($("header").data("loginstatus") == 0) {
+                e.preventDefault();
+                var redirect = $(this).data("redirect"), reload = $(this).data("reload"), callback = $(this).data("callback"), nomember = $(this).data("isnomember");
+
+                if (callback != null && callback != "") {
+                    $.desktop.login.open(function (phoneStatus, isNomember) {
+                        if (isNomember) {
+                            window.location.reload(true);
+                            return;
+                        }
+                        var _callback = eval(callback); _callback.apply();
+                    });
+                }
+                else if (reload != null && reload != "" && nomember != null) {
+                    $.desktop.login.open(function () { window.location.reload(true); }, nomember);
+                }
+                else if (reload != null && reload != "") {
+                    $.desktop.login.open(function () { window.location.reload(true); });
+                }
+                else if (redirect != null && redirect != "") {
+                    $.desktop.login.open(function (phoneStatus, isNomember) {
+                        if (isNomember) {
+                            window.location.reload(true);
+                            return;
+                        }
+                        window.location.href = redirect;
+                    });
+                }
+                else if ($(this).prop("tagName") == "A") {
+                    redirect = $(this).prop("href"); $.desktop.login.open(function (phoneStatus, isNomember) {
+                        if (isNomember) {
+                            window.location.reload(true);
+                            return;
+                        }
+                        window.location.href = redirect;
+                    });
+                }
+                return false;
+            }
+        });
+    });
+</script>
+
+<script type="text/javascript">
+    $(function () {
+        $("header").on("click", ".logoutpop", function () {
+            $.ajax({
+                url: "/Member/LogoutPop",
+                dataType: "json",
+                method: "POST",
+                success: function (data) {
+                    if (data.ResultCode == 1) {
+                        $.desktop.login.logout(
+                            function () { window.location.href = "/"; }
+                        )
+                    }
+                    else {
+                        alert(data.Message);
+                    }
+                },
+                error: function (XMLHttpRequest, textStatus, errorThrown) {
+                    alert("로그아웃 시도중 오류가 발생하였습니다.");
+                    console.log(errorThrown);
+                }
+            });
+            return false;
+        });
+    });
+</script>
+
+
+<script type="text/javascript">
+
+    function simpleReserv(playDate, theaterCode, movieCode, screenPlanId) {
+        $.desktop.reserve.open({
+            playDate: playDate,
+            theaterCode: theaterCode,
+            movieCode: movieCode,
+            screenPlanId: screenPlanId
+        });
+        return false;
+    }
+
+    $(function () {
+        $(".simplereservepop").click(function (e) {
+            e.preventDefault();
+            $.desktop.reserve.open({
+                playDate: ''
+            });
+            return false;
+        })
+    })
+</script>
+</head>
+<body id="top">
+    
+<div class="top-banner">
+    <a href="https://www.cineq.co.kr/Movie/Info?MovieCode=20262179"><img src="https://file.cineq.co.kr/j.aspx?guid=8aba127706ba453a82d04ec0cfb96201" class="banner" /></a>
+    <a href="#close" class="btn-close">닫기</a>
+</div>
+    
+
+    <header id="header" data-loginstatus="0">
+        <nav class="secondary">
+            <ul>
+                <li><a href="#" data-reload="reload1" class="loginpop" data-isnomember="0">로그인</a></li>
+                <li><a href="/Member/MembershipIntro">멤버십안내</a></li>
+                <li><a href="/Member">회원가입</a></li>
+                <li><a href="/MyPage/NoMember" class="nomemberloginpop">비회원예매내역</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    
+<div class="wrap-nav-primary">
+    <nav class="primary">
+        <a href="/"><h1 id="logo">CINE Q</h1></a>
+        <ul>
+            <li>
+                <a href="/Movie" class="" onmouseover="hideTheater()">영화</a>
+                <div class="tertiary ">
+                    <ul>
+                        <li><a href="/Movie/BoxOffice" class="" onmouseover="hideTheater()">박스오피스</a></li>
+                        <li><a href="/Movie/Latest" class="" onmouseover="hideTheater()">최신개봉작</a></li>
+                        <li><a href="/Movie/Comming" class="" onmouseover="hideTheater()">상영예정작</a></li>
+                    </ul>
+                </div>
+            </li>
+
+
+        <li>
+            <a href="/Theater?TheaterCode=1001" class="">영화관</a>
+            <div class="theaterInfo ">
+                <ul>
+                    <li><a href="/Theater?TheaterCode=1001" class="" onmouseover="showTheater(1)">서울/경기/인천</a></li>
+                    <li><a href="/Theater?TheaterCode=4101" class="" onmouseover="showTheater(4)">충청</a></li>
+                    <li><a href="/Theater?TheaterCode=6001" class="" onmouseover="showTheater(6)">경상</a></li>
+                    <li><a href="/Theater?TheaterCode=6003" class="" onmouseover="showTheater(10)">작은영화관</a></li>
+                </ul>
+            </div>
+            <div class="theaterInfo2 on" id="theaterType1">
+                <ul>
+                    <li><a href="/Theater?TheaterCode=1001" class="">신도림</a></li>
+                    <li><a href="/Theater?TheaterCode=2102" class="">청라</a></li>
+                    <li><a href="/Theater?TheaterCode=2002" class="">남양주다산</a></li>
+                </ul>
+            </div>
+            <div class="theaterInfo2 on" id="theaterType2">
+                <ul>
+                    <li><a href="/Theater?TheaterCode=4101" class="">천안불당</a></li>
+                </ul>
+            </div>
+            <div class="theaterInfo2 on" id="theaterType3">
+                <ul>
+                    <li><a href="/Theater?TheaterCode=5001" class="">전주영화의거리</a></li>
+                </ul>
+            </div>
+            <div class="theaterInfo2 on" id="theaterType4">
+                <ul>
+                    <li><a href="/Theater?TheaterCode=6001" class="">경주보문</a></li>
+                    <li><a href="/Theater?TheaterCode=6002" class="">구미봉곡</a></li>
+                </ul>
+            </div>
+            <div class="theaterInfo2 on" id="theaterType10">
+                <ul>
+                    <li><a href="/Theater?TheaterCode=6003" class="">칠곡호이</a></li>
+                    <li><a href="/Theater?TheaterCode=4002" class="">보은</a></li>
+                    <li><a href="/Theater?TheaterCode=6005" class="">영덕예주</a></li>
+                </ul>
+            </div>
+        </li>
+
+
+            <li>
+                <a href="/Event" class="selected" onmouseover="hideTheater()">이벤트</a>
+                <div class="tertiary stay">
+                    <ul>
+                        <li><a href="/Event/List?eventSort=-1" class="selected" onmouseover="hideTheater()">전체이벤트</a></li>
+                        <li><a href="/Event/List?eventSort=0" class="" onmouseover="hideTheater()">영화관이벤트</a></li>
+                        <li><a href="/Event/List?eventSort=1" class="" onmouseover="hideTheater()">영화이벤트</a></li>
+                        <li><a href="/Event/WinnerList" class="" onmouseover="hideTheater()">당첨자발표</a></li>
+                    </ul>
+                </div>
+            </li>
+            <li id="_navi_card">
+                <a href="/Card" class="" onmouseover="hideTheater()">제휴/할인</a>
+                <div class="tertiary ">
+                    <ul>
+                        <!--<li><a href="/Card/List#k1">멤버십적립카드</a></li>-->
+                        <li><a href="/Card/List#k2" onmouseover="hideTheater()">통신사</a></li>
+                        <li><a href="/Card/List#k3" onmouseover="hideTheater()">할인신용카드</a></li>
+                        <li><a href="/Card/List#k4" onmouseover="hideTheater()">할인포인트카드</a></li>
+                        <li><a href="/Card/List#k5" onmouseover="hideTheater()">관람권/상품권</a></li>
+                    </ul>
+                </div>
+            </li>
+        </ul>
+        <a href="#" class="btn-simple-rsv simplereservepop">간편예매</a>
+    </nav>
+</div>
+
+<script type="text/javascript">
+    showTheater(0);
+</script>
+
+
+
+
+
+
+    <div id="container">
+        <div id="content">
+            
+
+
+
+<div class="section group section-event">
+
+    <div class="wrap-event-box">
+        <table class="bbs-view bbs-view-event">
+            <tr>
+                <th>이벤트명</th>
+                <th>이벤트기간</th>
+                <th>상태</th>
+            </tr>
+            <tr>
+                <td class="title">&lt;연지구 디 오리지널 4K&gt; 개봉 1주차 현장 증정 이벤트</td>
+                <td class="date">2026.03.25~2026.03.31</td>
+                <td class="status ing">진행중</td>
+            </tr>
+            <tr>
+                <td colspan="3" class="content" onclick="javascript:tdClick()">
+                    <img src='https://file.cineq.co.kr/j.aspx?guid=5187bbe997744a1bb0433569e7d81654'/>
+                </td>
+            </tr>
+
+            <tr>
+                <td colspan="3" class="share">
+                    <ul>
+                        <li><a href="#" class="ks" id="kakao-share-btn">카카오스토리</a></li>
+                        <li><a href="#" class="bd" id="band-share-btn">밴드</a></li>
+                        <li><a href="#" class="fb" id="facebook-share-btn">페이스북</a></li>
+                    </ul>
+                </td>
+            </tr>
+                            <tr>
+                    <td colspan="3" class="nav"><span class="prev">최근 :</span> <a href="Info?eventId=6690&amp;eventSort=-1">&lt;슬라이드 스트럼 뮤트&gt; 해피기타 점포정리 상영회&#127928;</a></td>
+                </tr>
+                            <tr>
+                    <td colspan="3" class="nav"><span class="next">이전 :</span> <a href="Info?eventId=6687&amp;eventSort=-1">2026 아카데미 기획전 앵콜 상영</a></td>
+                </tr>
+        </table>
+        <a href="/Event/List" class="btn-bbs-list">목록</a>
+    </div>
+
+</div>
+
+        </div>
+    </div>
+
+    
+    <script type="text/javascript">
+    $(window).ready(function () {
+        $("#kakao-share-btn").click(function () {
+            fnKakaoTalkShare('https://www.cineq.co.kr/Event/Info?eventId=6689&eventSort=-1', 'https://www.cineq.co.kr/Event/Info?eventId=6689&eventSort=-1', '<연지구 디 오리지널 4K> 개봉 1주차 현장 증정 이벤트', 'https://file.cineq.co.kr/j.aspx?guid=dcea8e3608d34af99321bfb190ea6d57', '');
+            return false;
+        });
+        $("#band-share-btn").click(function () {
+            fnBandShare('&lt;연지구 디 오리지널 4K&gt; 개봉 1주차 현장 증정 이벤트', 'https://www.cineq.co.kr/Event/Info?eventId=6689&amp;eventSort=-1');
+            return false;
+        });
+        $("#facebook-share-btn").click(function () {
+            fnFaceBook('https://www.cineq.co.kr/Event/Info?eventId=6689&amp;eventSort=-1');
+            return false;
+        });
+    });
+
+    function tdClick() {
+        
+    }
+
+    function joinEvent(id) {
+        callJoinEventApi(id);
+    }
+
+    function callJoinEventApi(id) {
+        $.ajax({
+            url: "/Event/JoinEvent",
+            contentType: "application/json; charset=utf-8",
+            dataType: "json",
+            data: JSON.stringify({ eventId: id }),
+            type: "POST",
+            success: function (data) {
+                if (data.ResultCode == -1) {
+                    // 로그인이 필요한 경우
+                    $.desktop.login.open(function () {
+                        // 로그인 성공 후 모달 닫기
+                        $.modal.close();
+                        // 이벤트 참여 시도
+                        callJoinEventApi(id);
+                    });
+                } else {
+                    alert(data.ResultMessage);
+                    if (data.ResultCode > 0) {
+                        location.reload();
+                    }
+                }
+            },
+            error: function (XMLHttpRequest, textStatus, errorThrown) {
+                alert("이벤트 참여 요청에 실패하였습니다.");
+            }
+        });
+    }
+
+    </script>
+
+    <footer id="footer">
+    <div class="section group footer-social">
+
+        <ul>
+            <li><a href=""></a></li>
+            <li><a href=""></a></li>
+            <li><a href=""></a></li>
+            
+
+
+        </ul>
+        <a href="#top" class="btn-to-top" title="화면의 제일 위로 올라가는 버튼">제일 위로</a>
+
+    </div>
+    <div class="section group footer-service">
+        <a href="/" class="logo-footer">CINE Q</a>
+        <ul>
+            <li><a href="/Company/Company">회사소개</a></li>
+            <li><a href="/Customer/NoticeIRList">IR</a></li>
+            <li><a href="/Customer/CoopWrite" class="loginpop">제휴/광고/부대사업 문의</a></li>
+            <li><a href="#" class="read1">이용약관</a></li>
+            <li><a href="#" class="read2" style="color:#E60012">개인정보처리방침</a></li>
+            <li><a href="/Customer/NoticeList">고객센터</a></li>
+            <li><a href="#" class="read3">배정/편성기준</a></li>
+            <li><a href="/Site/SiteMap">사이트맵</a></li>
+        </ul>
+    </div>
+    <div class="section group footer-contact">
+        <ul>
+            <li>사업자명: ㈜씨네큐</li>
+            <li>사업자등록번호 656-88-01741 </li>
+            <li>통신판매업신고번호 2020-서울강남-03517</li>
+            <li>대표이사 유제천</li>
+        </ul>
+        <span class="addr">서울특별시 강남구 학동로 9길(5)  |  개인정보책임자 대표 이경선  |  고객센터 1544-1533  | 대표이메일 : cineq@its-new.co.kr</span>
+    </div>
+    <div class="section group footer-copyright">
+        <span>Copyright&copy; CINE Q.  All rights reserved</span>
+    </div>
+</footer>
+
+<script>
+    $(function () {
+        $("a.read1", "div.footer-service").click(function (e) {
+            e.preventDefault();
+            $.desktop.member.terms({
+                tabType: 1
+            });
+        });
+
+        $("a.read2", "div.footer-service").click(function (e) {
+            e.preventDefault();
+            $.desktop.member.terms({
+                tabType: 2
+            });
+        });
+
+        $("a.read3", "div.footer-service").click(function (e) {
+            e.preventDefault();
+            $.desktop.member.termstimetable({
+                tabType: 1
+            });
+        });
+    });
+</script>
+
+
+
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-125235578-1"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+        gtag('config', 'UA-125235578-1');
+        $( document ).ready(function() {
+            
+        });
+    </script>
+    <script type="text/javascript" src="https://pay.kcp.co.kr/plugin/payplus_web.jsp"></script>
+    <script type="text/javascript" src="https://nsp.pay.naver.com/sdk/js/naverpay.min.js"></script>
+
+</body>
+</html>
